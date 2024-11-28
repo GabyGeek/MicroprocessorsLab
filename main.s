@@ -1,7 +1,7 @@
 #include <xc.inc>
 
 extrn	UART_Setup, UART_Transmit_Message  ; external subroutines
-extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I
+extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear
 	
 psect	udata_acs   ; reserve data space in access ram
 counter:    ds 1    ; reserve one byte for a counter variable
@@ -9,8 +9,6 @@ delay_count:ds 1    ; reserve one byte for counter in the delay routine
     
 psect	udata_bank4 ; reserve data anywhere in RAM (here at 0x400)
 myArray:    ds 0x80 ; reserve 128 bytes for message data
-myList:	    ds 0x80
-myThree:    ds 0x80
 
 psect	data    
 	; ******* LINES ON THE LCD*****
@@ -37,7 +35,7 @@ rst: 	org 0x0
 setup:	bcf	CFGS	; point to Flash program memory  
 	bsf	EEPGD 	; access Flash program memory
 	call	UART_Setup	; setup UART
-	call	LCD_Setup	; setup UART
+	call	LCD_Setup	; setup LCD
 	goto	start
 	
 	; ******* Main programme ****************************************
@@ -65,6 +63,7 @@ loop: 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
 	addlw	0xff		; don't send the final carriage return to LCD
 	lfsr	2, myArray
 	call	LCD_Write_Message
+	call	LCD_Clear
 	
 	; Move cursor to second line
 	movlw	0xC0		
@@ -74,7 +73,7 @@ loop: 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
 	call	delay
 	
 	; Prepare and write the second line
-	lfsr	0, myList
+	lfsr	0, myArray
 	movlw	low highword(SecondLine)
 	movwf	TBLPTRU, A
 	movlw	high(SecondLine)
@@ -91,19 +90,19 @@ loop2:
 	bra	loop2
 	
 	; Write second message to LCD
-	movlw	mySecondTable_l
+	movlw	SecondLine_l
 	addlw	0xff
-	lfsr	2, myList    ; load address of the second message
+	lfsr	2, myArray    ; load address of the second message
 	call	LCD_Write_Message   ; write second message to the LCD
 	
 	; Move cursor to third line
 	movlw   0x94        ; Command to move to start of third line
 	call    LCD_Send_Byte_I
 	movlw   10          ; Introducing delay cause maybe the cursor is going too quick
-	movwf   delay_count ; and missing the first character??
+	movwf   delay_count, A ; and missing the first character??
 	call    delay
 	
-	lfsr	0, myThree
+	lfsr	0, myArray
 	movlw	low highword(ThirdLine)
 	movwf	TBLPTRU, A
 	movlw	high(ThirdLine)
@@ -122,7 +121,7 @@ loop3:
 	; Write second message to LCD
 	movlw	ThirdLine_l
 	addlw	0xff
-	lfsr	2, myThree    ; load address of the second message
+	lfsr	2, myArray    ; load address of the second message
 	call	LCD_Write_Message   ; write second message to the LCD
     
 	goto	$		; goto current line in code
