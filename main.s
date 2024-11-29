@@ -1,10 +1,11 @@
 #include <xc.inc>
 
 extrn	UART_Setup, UART_Transmit_Message  ; external subroutines
-extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear, LCD_Send_Byte_D
+extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear, LCD_Send_Byte_D, ReadLine1, ReadLine2, ReadLine3
 extrn	Check_Buttons, Move_Up, Move_Down, Select_Line
     
-global	current_line, delay_count, Display_Menu
+global	current_line, delay_count, Display_Menu, myArray, counter
+global	FirstLine, FirstLine_l, SecondLine, SecondLine_l, ThirdLine, ThirdLine_l
 	
 psect	udata_acs   ; reserve data space in access ram
 counter:    ds 1    ; reserve one byte for a counter variable
@@ -39,15 +40,19 @@ rst: 	org 0x0
  	goto	setup
 
 	; ******* Programme FLASH read Setup Code ***********************
-setup:	bcf	CFGS	; point to Flash program memory  
-	bsf	EEPGD 	; access Flash program memory
-	call	UART_Setup	; setup UART
-	call	LCD_Setup	; setup LCD
+setup:	bcf    CFGS    
+	bsf    EEPGD
+	call   UART_Setup
+	call   LCD_Setup
+
+	clrf   current_line, A     ; Start from the first line
+	call   Display_Menu     ; Initial display
 	
-	clrf	current_line, A	; clears current line so you start at 0
-	call	Display_Menu
+	banksel	TRISB
+	movlw	0xFF
+	movwf	TRISB, A
 	
-	goto	start
+	goto   start
 	
 	; ******* Main programme ****************************************
 start:
@@ -55,59 +60,59 @@ start:
 	goto	start
 	
 Display_Menu:
-	call    LCD_Clear
-	movlw   0x80            ; Move cursor to the first line
-	call    LCD_Send_Byte_I
+    call    LCD_Clear
+    
+    ; First Line
+    movlw   0x80            ; Move cursor to first line
+    call    LCD_Send_Byte_I
+    lfsr    2, FirstLine    ; Load first line address
+    movlw   FirstLine_l     ; Load length
+    call    LCD_Write_Message
+    
+    ; Check if arrow goes on first line
+    movf    current_line, W, A
+    sublw   1
+    bnz     print_second_line
+    movlw   0x80
+    call    LCD_Send_Byte_I
+    movf    Arrow, W, A     ; Load arrow value correctly
+    call    LCD_Send_Byte_D
+    
+print_second_line:
+    movlw   0xC0            ; Move cursor to second line
+    call    LCD_Send_Byte_I
+    lfsr    2, SecondLine   ; Load second line address
+    movlw   SecondLine_l    ; Load length
+    call    LCD_Write_Message
+    
+    ; Check if arrow goes on second line
+    movf    current_line, W, A
+    sublw   2
+    bnz     print_third_line
+    movlw   0xC0
+    call    LCD_Send_Byte_I
+    movf    Arrow, W, A     ; Load arrow value correctly
+    call    LCD_Send_Byte_D
+    
+print_third_line:
+    movlw   0x94            ; Move cursor to third line
+    call    LCD_Send_Byte_I
+    lfsr    2, ThirdLine    ; Load third line address
+    movlw   ThirdLine_l     ; Load length
+    call    LCD_Write_Message
+    
+    ; Check if arrow goes on third line
+    movf    current_line, W, A
+    sublw   3
+    bnz     menu_done
+    movlw   0x94
+    call    LCD_Send_Byte_I
+    movf    Arrow, W, A     ; Load arrow value correctly
+    call    LCD_Send_Byte_D
+    
+menu_done:
+    return
 
-	; Print the first line
-	lfsr    2, FirstLine    ; Load address of the first message
-	movlw   FirstLine_l
-	call    LCD_Write_Message
-
-	; Print arrow if current line is 1
-	movf    current_line, W, A
-	sublw   1
-	bnz     skip_arrow_1
-	movlw   0x80            ; Move cursor to the start of first line
-	call    LCD_Send_Byte_I
-	movlw   Arrow           ; Print arrow symbol
-	call    LCD_Send_Byte_D
-skip_arrow_1:
-
-	; Print the second line
-	movlw   0xC0            ; Move cursor to the second line
-	call    LCD_Send_Byte_I
-	lfsr    2, SecondLine
-	movlw   SecondLine_l
-	call    LCD_Write_Message
-
-	; Print arrow if current line is 2
-	movf    current_line, W, A
-	sublw   2
-	bnz     skip_arrow_2
-	movlw   0xC0            ; Move cursor to the start of second line
-	call    LCD_Send_Byte_I
-	movlw   Arrow
-	call    LCD_Send_Byte_D
-skip_arrow_2:
-
-	; Print the third line
-	movlw   0x94            ; Move cursor to the third line
-	call    LCD_Send_Byte_I
-	lfsr    2, ThirdLine
-	movlw   ThirdLine_l
-	call    LCD_Write_Message
-
-	; Print arrow if current line is 3
-	movf    current_line, W, A
-	sublw   3
-	bnz     skip_arrow_3
-	movlw   0x94            ; Move cursor to the start of third line
-	call    LCD_Send_Byte_I
-	movlw   Arrow
-	call    LCD_Send_Byte_D
-skip_arrow_3:
-	return
 	
 ; a delay subroutine if you need one, times around loop in delay_count
 delay:	decfsz	delay_count, A	; decrement until zero
