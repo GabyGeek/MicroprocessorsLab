@@ -60,59 +60,95 @@ start:
 	goto	start
 	
 Display_Menu:
-    call    LCD_Clear
-    
-    ; First Line
-    movlw   0x80            ; Move cursor to first line
-    call    LCD_Send_Byte_I
-    lfsr    2, FirstLine    ; Load first line address
-    movlw   FirstLine_l     ; Load length
-    call    LCD_Write_Message
-    
-    ; Check if arrow goes on first line
-    movf    current_line, W, A
-    sublw   1
-    bnz     print_second_line
-    movlw   0x80
-    call    LCD_Send_Byte_I
-    movf    Arrow, W, A     ; Load arrow value correctly
-    call    LCD_Send_Byte_D
-    
-print_second_line:
-    movlw   0xC0            ; Move cursor to second line
-    call    LCD_Send_Byte_I
-    lfsr    2, SecondLine   ; Load second line address
-    movlw   SecondLine_l    ; Load length
-    call    LCD_Write_Message
-    
-    ; Check if arrow goes on second line
-    movf    current_line, W, A
-    sublw   2
-    bnz     print_third_line
-    movlw   0xC0
-    call    LCD_Send_Byte_I
-    movf    Arrow, W, A     ; Load arrow value correctly
-    call    LCD_Send_Byte_D
-    
-print_third_line:
-    movlw   0x94            ; Move cursor to third line
-    call    LCD_Send_Byte_I
-    lfsr    2, ThirdLine    ; Load third line address
-    movlw   ThirdLine_l     ; Load length
-    call    LCD_Write_Message
-    
-    ; Check if arrow goes on third line
-    movf    current_line, W, A
-    sublw   3
-    bnz     menu_done
-    movlw   0x94
-    call    LCD_Send_Byte_I
-    movf    Arrow, W, A     ; Load arrow value correctly
-    call    LCD_Send_Byte_D
-    
-menu_done:
-    return
+	call    LCD_Clear
+	movlw   0x80            ; Move cursor to the first line
+	call    LCD_Send_Byte_I
+	
+	; Print the first line
+	call	ReadLine1
+	
+loop: 	
+	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
+	movff	TABLAT, POSTINC0; move data from TABLAT to (FSR0), inc FSR0	
+	decfsz	counter, A		; count down to zero
+	bra	loop		; keep going until finished
 
+	; Write first message to LCD
+	movlw	FirstLine_l	; output message to LCD
+	addlw	0xff		; don't send the final carriage return to LCD
+	lfsr	2, myArray
+	call	LCD_Write_Message
+	call	LCD_Clear
+
+
+	; Print arrow if current line is 1
+	movf    current_line, W, A
+	sublw   1
+	bnz     skip_arrow_1
+	
+	movlw   0x80            ; Move cursor to the start of first line
+	call    LCD_Send_Byte_I
+	
+	movlw   Arrow           ; Print arrow symbol
+	call    LCD_Send_Byte_D
+	
+skip_arrow_1:
+	movlw   0xC0            ; Move cursor to the second line
+	call    LCD_Send_Byte_I	
+	
+	call	ReadLine2
+
+loop2:
+	tblrd*+
+	movff	TABLAT, POSTINC0
+	decfsz	counter, A
+	bra	loop2
+	
+	; Write second message to LCD
+	movlw	SecondLine_l
+	addlw	0xff
+	lfsr	2, myArray    ; load address of the second message
+	call	LCD_Write_Message   ; write second message to the LCD
+
+	; Print arrow if current line is 2
+	movf    current_line, W, A
+	sublw   2
+	bnz     skip_arrow_2
+	
+	movlw   0xC0            ; Move cursor to the start of second line
+	call    LCD_Send_Byte_I
+	
+	movlw   Arrow		; Printing the arrow?
+	call    LCD_Send_Byte_D
+	
+skip_arrow_2:
+	movlw   0x94            ; Move cursor to the third line
+	call    LCD_Send_Byte_I
+	
+	call	ReadLine3
+	
+loop3:
+	tblrd*+
+	movff	TABLAT, POSTINC0
+	decfsz	counter, A
+	bra	loop3
+	
+	; Write third line of the messge to LCD
+	movlw	ThirdLine_l
+	addlw	0xff
+	lfsr	2, myArray    ; load address of the second message
+	call	LCD_Write_Message   ; write second message to the LCD
+	
+	; Print arrow if current line is 3
+	movf    current_line, W, A
+	sublw   3
+	bnz     skip_arrow_3
+	movlw   0x94            ; Move cursor to the start of third line
+	call    LCD_Send_Byte_I
+	movlw   Arrow
+	call    LCD_Send_Byte_D
+skip_arrow_3:
+	return
 	
 ; a delay subroutine if you need one, times around loop in delay_count
 delay:	decfsz	delay_count, A	; decrement until zero
