@@ -1,11 +1,15 @@
 #include <xc.inc>
 
 extrn	UART_Setup, UART_Transmit_Message  ; external subroutines
-extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear
+extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear, LCD_Send_Byte_D
+extrn	Check_Buttons, Move_Up, Move_Down, Select_Line
+    
+global	current_line, delay_count, Display_Menu
 	
 psect	udata_acs   ; reserve data space in access ram
 counter:    ds 1    ; reserve one byte for a counter variable
 delay_count:ds 1    ; reserve one byte for counter in the delay routine
+current_line: 	ds 1; Holds the selected menu index (1-3)
     
 psect	udata_bank4 ; reserve data anywhere in RAM (here at 0x400)
 myArray:    ds 0x80 ; reserve 128 bytes for message data
@@ -26,6 +30,9 @@ ThirdLine:
 	db	'M', 'o', 'i', 's', 't', 'u', 'r', 'e', 0x0a
 	ThirdLine_l	EQU 9	; length of third line
 	align 2
+	
+Arrow:
+	db	0x7E
     
 psect	code, abs	
 rst: 	org 0x0
@@ -36,97 +43,73 @@ setup:	bcf	CFGS	; point to Flash program memory
 	bsf	EEPGD 	; access Flash program memory
 	call	UART_Setup	; setup UART
 	call	LCD_Setup	; setup LCD
+	
+	clrf	current_line, A	; clears current line so you start at 0
+	call	Display_Menu
+	
 	goto	start
 	
 	; ******* Main programme ****************************************
-start: 	lfsr	0, myArray	; Load FSR0 with address in RAM	
-	movlw	low highword(FirstLine)	; address of data in PM
-	movwf	TBLPTRU, A		; load upper bits to TBLPTRU
-	movlw	high(FirstLine)	; address of data in PM
-	movwf	TBLPTRH, A		; load high byte to TBLPTRH
-	movlw	low(FirstLine)	; address of data in PM
-	movwf	TBLPTRL, A		; load low byte to TBLPTRL
-	movlw	FirstLine_l	; bytes to read
-	movwf 	counter, A		; our counter register
-loop: 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
-	movff	TABLAT, POSTINC0; move data from TABLAT to (FSR0), inc FSR0	
-	decfsz	counter, A		; count down to zero
-	bra	loop		; keep going until finished
+start:
+	call	Check_Buttons
+	goto	start
 	
-	; Write first message to UART
-	movlw	FirstLine_l	; output message to UART
-	lfsr	2, myArray
-	call	UART_Transmit_Message
-
-	; Write first message to LCD
-	movlw	FirstLine_l	; output message to LCD
-	addlw	0xff		; don't send the final carriage return to LCD
-	lfsr	2, myArray
-	call	LCD_Write_Message
-	call	LCD_Clear
-	
-	; Move cursor to second line
-	movlw	0xC0		
-	call	LCD_Send_Byte_I
-	movlw	10		; Introducing delay cause maybe the cursor is going too quick
-	movwf	delay_count	;	and missing the first character??
-	call	delay
-	
-	; Prepare and write the second line
-	lfsr	0, myArray
-	movlw	low highword(SecondLine)
-	movwf	TBLPTRU, A
-	movlw	high(SecondLine)
-	movwf	TBLPTRH, A
-	movlw	low(SecondLine)
-	movwf	TBLPTRL, A
-	movlw	SecondLine_l
-	movwf	counter, A
-
-loop2:
-	tblrd*+
-	movff	TABLAT, POSTINC0
-	decfsz	counter, A
-	bra	loop2
-	
-	; Write second message to LCD
-	movlw	SecondLine_l
-	addlw	0xff
-	lfsr	2, myArray    ; load address of the second message
-	call	LCD_Write_Message   ; write second message to the LCD
-	
-	; Move cursor to third line
-	movlw   0x94        ; Command to move to start of third line
+Display_Menu:
+	call    LCD_Clear
+	movlw   0x80            ; Move cursor to the first line
 	call    LCD_Send_Byte_I
-	movlw   10          ; Introducing delay cause maybe the cursor is going too quick
-	movwf   delay_count, A ; and missing the first character??
-	call    delay
-	
-	lfsr	0, myArray
-	movlw	low highword(ThirdLine)
-	movwf	TBLPTRU, A
-	movlw	high(ThirdLine)
-	movwf	TBLPTRH, A
-	movlw	low(ThirdLine)
-	movwf	TBLPTRL, A
-	movlw	ThirdLine_l
-	movwf	counter, A
-	
-loop3:
-	tblrd*+
-	movff	TABLAT, POSTINC0
-	decfsz	counter, A
-	bra	loop3
-	
-	; Write second message to LCD
-	movlw	ThirdLine_l
-	addlw	0xff
-	lfsr	2, myArray    ; load address of the second message
-	call	LCD_Write_Message   ; write second message to the LCD
-    
-	goto	$		; goto current line in code
 
-	; a delay subroutine if you need one, times around loop in delay_count
+	; Print the first line
+	lfsr    2, FirstLine    ; Load address of the first message
+	movlw   FirstLine_l
+	call    LCD_Write_Message
+
+	; Print arrow if current line is 1
+	movf    current_line, W, A
+	sublw   1
+	bnz     skip_arrow_1
+	movlw   0x80            ; Move cursor to the start of first line
+	call    LCD_Send_Byte_I
+	movlw   Arrow           ; Print arrow symbol
+	call    LCD_Send_Byte_D
+skip_arrow_1:
+
+	; Print the second line
+	movlw   0xC0            ; Move cursor to the second line
+	call    LCD_Send_Byte_I
+	lfsr    2, SecondLine
+	movlw   SecondLine_l
+	call    LCD_Write_Message
+
+	; Print arrow if current line is 2
+	movf    current_line, W, A
+	sublw   2
+	bnz     skip_arrow_2
+	movlw   0xC0            ; Move cursor to the start of second line
+	call    LCD_Send_Byte_I
+	movlw   Arrow
+	call    LCD_Send_Byte_D
+skip_arrow_2:
+
+	; Print the third line
+	movlw   0x94            ; Move cursor to the third line
+	call    LCD_Send_Byte_I
+	lfsr    2, ThirdLine
+	movlw   ThirdLine_l
+	call    LCD_Write_Message
+
+	; Print arrow if current line is 3
+	movf    current_line, W, A
+	sublw   3
+	bnz     skip_arrow_3
+	movlw   0x94            ; Move cursor to the start of third line
+	call    LCD_Send_Byte_I
+	movlw   Arrow
+	call    LCD_Send_Byte_D
+skip_arrow_3:
+	return
+	
+; a delay subroutine if you need one, times around loop in delay_count
 delay:	decfsz	delay_count, A	; decrement until zero
 	bra	delay
 	return
