@@ -1,8 +1,9 @@
 #include <xc.inc>
 
-global  LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Send_Byte_D, LCD_Clear, ReadLine1, ReadLine2, ReadLine3
+global  LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Send_Byte_D, LCD_Clear
+global	Read_Line1, Read_Line2,	Read_Arrow, Move_Line1, Move_Line2, Write_Line1, Write_Line2, Write_Arrow
     
-extrn	delay_count, FirstLine, FirstLine_l, SecondLine, SecondLine_l, ThirdLine, ThirdLine_l, myArray, counter
+extrn	counter, delay_count, myArray, FirstLine, FirstLine_l, SecondLine, SecondLine_l, Arrow, Arrow_l
 
 psect	udata_acs   ; named variables in access ram
 LCD_cnt_l:	ds 1   ; reserve 1 byte for variable LCD_cnt_l
@@ -106,7 +107,83 @@ LCD_Enable:	    ; pulse enable bit LCD_E for 500ns
 	nop
 	bcf	LATB, LCD_E, A	    ; Writes data to LCD
 	return
-    
+	
+LCD_Clear:
+	movlw	0x01		; Clear display command
+	call	LCD_Send_Byte_I	; Send command to LCD
+	movlw	10
+	movwf	delay_count, A
+	call	delay
+	return	
+	
+;-----------------------------------------
+; READING/WRITING to the LCD
+;-----------------------------------------
+Read_Line1:
+	lfsr	0, myArray	; Load FSR0 with address in RAM	
+	movlw	low highword(FirstLine)	; address of data in PM
+	movwf	TBLPTRU, A		; load upper bits to TBLPTRU
+	movlw	high(FirstLine)	; address of data in PM
+	movwf	TBLPTRH, A		; load high byte to TBLPTRH
+	movlw	low(FirstLine)	; address of data in PM
+	movwf	TBLPTRL, A		; load low byte to TBLPTRL
+	movlw	FirstLine_l	; bytes to read
+	movwf 	counter, A		; our counter register
+
+Read_Line2:
+	lfsr	0, myArray
+	movlw	low highword(SecondLine)
+	movwf	TBLPTRU, A
+	movlw	high(SecondLine)
+	movwf	TBLPTRH, A
+	movlw	low(SecondLine)
+	movwf	TBLPTRL, A
+	movlw	SecondLine_l
+	movwf	counter, A
+	
+Read_Arrow:
+	lfsr	0, myArray
+	movlw	low highword(Arrow)
+	movwf	TBLPTRU, A
+	movlw	high(Arrow)
+	movwf	TBLPTRH, A
+	movlw	low(Arrow)
+	movwf	TBLPTRL, A
+	movlw	Arrow_l
+	movwf	counter, A
+	
+Write_Line1:
+	movlw	FirstLine_l	; output message to LCD
+	addlw	0xff		; don't send the final carriage return to LCD
+	lfsr	2, myArray
+	call	LCD_Write_Message
+	
+Write_Line2:
+	movlw	SecondLine_l
+	addlw	0xff
+	lfsr	2, myArray    ; load address of the second message
+	call	LCD_Write_Message   ; write second message to the LCD
+	
+Write_Arrow:
+	movlw	Arrow_l
+	addlw	0xff
+	lfsr	2, myArray    ; load address of the second message
+	call	LCD_Write_Message   ; write second message to the LCD
+	
+Move_Line1:
+	movlw	0x80		
+	call	LCD_Send_Byte_I
+	movlw	10		; Introducing delay cause maybe the cursor is going too quick
+	movwf	delay_count	;	and missing the first character??
+	call	delay
+	
+Move_Line2:
+	movlw	0xC0		
+	call	LCD_Send_Byte_I
+	movlw	10		; Introducing delay cause maybe the cursor is going too quick
+	movwf	delay_count	;	and missing the first character??
+	call	delay
+
 ; ** a few delay routines below here as LCD timing can be quite critical ****
 LCD_delay_ms:		    ; delay given in ms in W
 	movwf	LCD_cnt_ms, A
@@ -126,61 +203,16 @@ LCD_delay_x4us:		    ; delay given in chunks of 4 microsecond in W
 	andwf	LCD_cnt_l, F, A ; keep high nibble in LCD_cnt_l
 	call	LCD_delay
 	return
-	
-LCD_Clear:
-	movlw	0x01		; Clear display command
-	call	LCD_Send_Byte_I	; Send command to LCD
-	movlw	10
-	movwf	delay_count, A
-	call	delay
-	return
 
 LCD_delay:			; delay routine	4 instruction loop == 250ns	    
 	movlw 	0x00		; W=0
-lcdlp1:	decf 	LCD_cnt_l, F, A	; no carry when 0x00 -> 0xff
+lcdlp1:	
+	decf 	LCD_cnt_l, F, A	; no carry when 0x00 -> 0xff
 	subwfb 	LCD_cnt_h, F, A	; no carry when 0x00 -> 0xff
-	bc 	lcdlp1		; carry, then loop again
 	return			; carry reset so return
 
 delay:	decfsz	delay_count, A	; decrement until zero
 	bra	delay
 	return
-	
-ReadLine1:
-	lfsr	0, myArray	; Load FSR0 with address in RAM	
-	movlw	low highword(FirstLine)	; address of data in PM
-	movwf	TBLPTRU, A		; load upper bits to TBLPTRU
-	movlw	high(FirstLine)	; address of data in PM
-	movwf	TBLPTRH, A		; load high byte to TBLPTRH
-	movlw	low(FirstLine)	; address of data in PM
-	movwf	TBLPTRL, A		; load low byte to TBLPTRL
-	movlw	FirstLine_l	; bytes to read
-	movwf 	counter, A		; our counter register
-	return
 
-ReadLine2:
-	lfsr	0, myArray
-	movlw	low highword(SecondLine)
-	movwf	TBLPTRU, A
-	movlw	high(SecondLine)
-	movwf	TBLPTRH, A
-	movlw	low(SecondLine)
-	movwf	TBLPTRL, A
-	movlw	SecondLine_l
-	movwf	counter, A
-	return
-
-ReadLine3:
-	lfsr	0, myArray
-	movlw	low highword(ThirdLine)
-	movwf	TBLPTRU, A
-	movlw	high(ThirdLine)
-	movwf	TBLPTRH, A
-	movlw	low(ThirdLine)
-	movwf	TBLPTRL, A
-	movlw	ThirdLine_l
-	movwf	counter, A
-	return
-
-    end
-
+end
