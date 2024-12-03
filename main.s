@@ -61,7 +61,6 @@ Button_Loop:
     
 Initial_Menu:
 	call	Read_Line1
-	call	Read_Arrow
 	
 loop: 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
 	movff	TABLAT, POSTINC0; move data from TABLAT to (FSR0), inc FSR0	
@@ -69,7 +68,6 @@ loop: 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
 	bra	loop		; keep going until finished
 
 	call	Write_Line1	; write first message
-	call	Write_Arrow
 	call	Move_Line2	; Move cursor to second line
 	call	Read_Line2
 
@@ -82,7 +80,7 @@ loop2:
 	call	Write_Line2
 	call	Move_Line1
 	
-	bra	Display_Menu		; goto current line in code
+	return		; goto current line in code
 
 Display_Menu:
 	call	Read_Line1
@@ -119,7 +117,7 @@ display_loop2:
 	
 	call	Move_Line1
 	
-	bra	Display_Menu		; goto current line in code
+	return		; goto current line in code
 ;-----------------------------------------
 ; Delay
 ;-----------------------------------------
