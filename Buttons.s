@@ -1,38 +1,34 @@
 #include <xc.inc>
     
+extrn	current_line
+extrn	Display_Menu, LCD_Clear
 global	Check_Buttons, Move_Up, Move_Down, Select_Line
     
 Check_Buttons:
-    btfsc   PORTB, 0		; If the port is clear,
+    btfsc   PORTA, 0, A		; If bit 0 of PORTB is clear, skip the command
     call    Move_Up
     
-    btfsc   PORTB, 1
+    btfsc   PORTA, 1, A
     call    Move_Down
     
-    btfsc   PORTB, 2
+    btfsc   PORTA, 2, A
     call    Select_Line
     
     return
     
 Move_Up:
-   decf	    current_line, F	; Decrement the current_line variable 
-   btfss    STATUS, Z		; If current line < 0
+   ; if on line 2, make current line 0
+   movlw    0
+   movwf    current_line
    goto	    Display_Menu
-   
-   movlw   2
-   movwf   current_line		; Loop to last line if < 0
-   call    Display_Menu
    return
 
 Move_Down:
-    incf    current_line, F
-    movlw   3
-    subwf   current_line, W
-    btfsc   STATUS, Z		; If current_line >= 3
-    clrf    current_line	; Loop back to 0
-    
-    call    Display_Menu
-    return
+    ; if on line 1, make current line 1
+   movlw    1
+   movwf    current_line
+   goto	    Display_Menu
+   return
 
     
 Select_Line:
