@@ -1,22 +1,29 @@
 #include <xc.inc>
-
-extrn	UART_Setup, UART_Transmit_Message  ; external subroutines
-extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear, LCD_Send_Byte_D, ReadLine1, ReadLine2, ReadLine3
-extrn	Check_Buttons, Move_Up, Move_Down, Select_Line
+;-----------------------------------------
+; External and Global variables
+;-----------------------------------------
+extrn	Check_Buttons, Move_Up, Move_Down, Select_Line  ; external subroutines
+extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear
+extrn	Read_Line1, Read_Line2,	Read_Arrow, Move_Line1, Move_Line2, Write_Line1, Write_Line2, Write_Arrow
     
-global	current_line, delay_count, Display_Menu, myArray, counter
-global	FirstLine, FirstLine_l, SecondLine, SecondLine_l, ThirdLine, ThirdLine_l
-	
+
+global	counter, current_line, delay_count, myArray, FirstLine, FirstLine_l, SecondLine, SecondLine_l, Arrow, Arrow_l, Display_Menu
+;-----------------------------------------
+; Holding space for constants
+;-----------------------------------------
 psect	udata_acs   ; reserve data space in access ram
 counter:    ds 1    ; reserve one byte for a counter variable
-delay_count:ds 1    ; reserve one byte for counter in the delay routine
-current_line: 	ds 1; Holds the selected menu index (1-3)
+delay_count:	ds  1    ; reserve one byte for counter in the delay routine
+current_line:	ds  1	 ; current line of menu (0x80 = line 1, 0xC0 = line 2, diff = 0x40) 
     
 psect	udata_bank4 ; reserve data anywhere in RAM (here at 0x400)
 myArray:    ds 0x80 ; reserve 128 bytes for message data
 
+    
+;-----------------------------------------
+; Loading the Messages
+;-----------------------------------------
 psect	data    
-	; ******* LINES ON THE LCD*****
 FirstLine:
 	db	'T', 'E', 'M', 'P', 'E', 'R', 'A', 'T', 'U', 'R', 'E',0x0a
 	FirstLine_l   EQU	12	; length of data
@@ -27,76 +34,44 @@ SecondLine:
 	SecondLine_l	EQU 6	; length of second message
 	align	2
 	
-ThirdLine:
-	db	'M', 'o', 'i', 's', 't', 'u', 'r', 'e', 0x0a
-	ThirdLine_l	EQU 9	; length of third line
-	align 2
-	
 Arrow:
-	db	0x7E
-    
+	db	0xFF, 0x0a  ; currently just an indicator, not an arrow
+	Arrow_l	EQU 2
+	align	2
+
+;-----------------------------------------
+; Main Program
+;-----------------------------------------
 psect	code, abs	
 rst: 	org 0x0
  	goto	setup
-
-	; ******* Programme FLASH read Setup Code ***********************
-setup:	bcf    CFGS    
-	bsf    EEPGD
-	call   UART_Setup
-	call   LCD_Setup
-
-	clrf   current_line, A     ; Start from the first line
-	call   Display_Menu     ; Initial display
 	
-	banksel	TRISB
+setup:	bcf	CFGS	; point to Flash program memory  
+	bsf	EEPGD 	; access Flash program memory
+	
 	movlw	0xFF
-	movwf	TRISB, A
+	movwf	TRISA, A	; sets PORTB as the input
 	
-	goto   start
+	call	LCD_Setup	; setup LCD
+	call	Initial_Menu	; inital display
 	
-	; ******* Main programme ****************************************
-start:
+Button_Loop:
 	call	Check_Buttons
-	goto	start
+	bra	Button_Loop
+    
+Initial_Menu:
+	call	Read_Line1
+	call	Read_Arrow
 	
-Display_Menu:
-	call    LCD_Clear
-	movlw   0x80            ; Move cursor to the first line
-	call    LCD_Send_Byte_I
-	
-	; Print the first line
-	call	ReadLine1
-	
-loop: 	
-	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
+loop: 	tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
 	movff	TABLAT, POSTINC0; move data from TABLAT to (FSR0), inc FSR0	
 	decfsz	counter, A		; count down to zero
 	bra	loop		; keep going until finished
 
-	; Write first message to LCD
-	movlw	FirstLine_l	; output message to LCD
-	addlw	0xff		; don't send the final carriage return to LCD
-	lfsr	2, myArray
-	call	LCD_Write_Message
-	call	LCD_Clear
-
-
-	; Print arrow if current line is 1
-	movf    current_line, W, A
-	sublw   1
-	bnz     skip_arrow_1
-	
-	movlw   0x80            ; Move cursor to the start of first line
-	call    LCD_Send_Byte_I
-	
-	movlw   Arrow           ; Print arrow symbol
-	call    LCD_Send_Byte_D
-	
-skip_arrow_1:
-	movlw   0xC0            ; Move cursor to the second line
-	call    LCD_Send_Byte_I	
-	
-	call	ReadLine2
+	call	Write_Line1	; write first message
+	call	Write_Arrow
+	call	Move_Line2	; Move cursor to second line
+	call	Read_Line2
 
 loop2:
 	tblrd*+
@@ -104,53 +79,50 @@ loop2:
 	decfsz	counter, A
 	bra	loop2
 	
-	; Write second message to LCD
-	movlw	SecondLine_l
-	addlw	0xff
-	lfsr	2, myArray    ; load address of the second message
-	call	LCD_Write_Message   ; write second message to the LCD
+	call	Write_Line2
+	call	Move_Line1
+	
+	bra	Display_Menu		; goto current line in code
 
-	; Print arrow if current line is 2
-	movf    current_line, W, A
-	sublw   2
-	bnz     skip_arrow_2
+Display_Menu:
+	call	Read_Line1
+	call	Read_Arrow
 	
-	movlw   0xC0            ; Move cursor to the start of second line
-	call    LCD_Send_Byte_I
+display_loop:
+        tblrd*+			; one byte from PM to TABLAT, increment TBLPRT
+	movff	TABLAT, POSTINC0; move data from TABLAT to (FSR0), inc FSR0	
+	decfsz	counter, A		; count down to zero
+	bra	display_loop		; keep going until finished
+
+	call	Write_Line1	; write first message
 	
-	movlw   Arrow		; Printing the arrow?
-	call    LCD_Send_Byte_D
+	movf    current_line, W     ; Move current_line value to W
+	sublw   1                   ; Subtract W from 1 (checking if current_line == 1)
+	btfss   STATUS, 2           ; Skip next instruction if not zero
+	call    Write_Arrow         ; Call if current_line == 1
 	
-skip_arrow_2:
-	movlw   0x94            ; Move cursor to the third line
-	call    LCD_Send_Byte_I
-	
-	call	ReadLine3
-	
-loop3:
+	call	Move_Line2	; Move cursor to second line
+	call	Read_Line2
+
+display_loop2:
 	tblrd*+
 	movff	TABLAT, POSTINC0
 	decfsz	counter, A
-	bra	loop3
+	bra	display_loop2
 	
-	; Write third line of the messge to LCD
-	movlw	ThirdLine_l
-	addlw	0xff
-	lfsr	2, myArray    ; load address of the second message
-	call	LCD_Write_Message   ; write second message to the LCD
+	call	Write_Line2
 	
-	; Print arrow if current line is 3
-	movf    current_line, W, A
-	sublw   3
-	bnz     skip_arrow_3
-	movlw   0x94            ; Move cursor to the start of third line
-	call    LCD_Send_Byte_I
-	movlw   Arrow
-	call    LCD_Send_Byte_D
-skip_arrow_3:
-	return
+	movf    current_line, W     ; Move current_line value to W
+	sublw   1                   ; Subtract W from 1 (checking if current_line == 1)
+	btfsc   STATUS, 2           ; Skip next instruction if not zero
+	call    Write_Arrow         ; Call if current_line == 1
 	
-; a delay subroutine if you need one, times around loop in delay_count
+	call	Move_Line1
+	
+	bra	Display_Menu		; goto current line in code
+;-----------------------------------------
+; Delay
+;-----------------------------------------
 delay:	decfsz	delay_count, A	; decrement until zero
 	bra	delay
 	return
