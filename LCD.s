@@ -129,6 +129,7 @@ Read_Line1:
 	movwf	TBLPTRL, A		; load low byte to TBLPTRL
 	movlw	FirstLine_l	; bytes to read
 	movwf 	counter, A		; our counter register
+	return
 
 Read_Line2:
 	lfsr	0, myArray
@@ -140,6 +141,7 @@ Read_Line2:
 	movwf	TBLPTRL, A
 	movlw	SecondLine_l
 	movwf	counter, A
+	return
 	
 Read_Arrow:
 	lfsr	0, myArray
@@ -151,24 +153,28 @@ Read_Arrow:
 	movwf	TBLPTRL, A
 	movlw	Arrow_l
 	movwf	counter, A
+	return
 	
 Write_Line1:
 	movlw	FirstLine_l	; output message to LCD
 	addlw	0xff		; don't send the final carriage return to LCD
 	lfsr	2, myArray
 	call	LCD_Write_Message
+	return
 	
 Write_Line2:
 	movlw	SecondLine_l
 	addlw	0xff
 	lfsr	2, myArray    ; load address of the second message
 	call	LCD_Write_Message   ; write second message to the LCD
+	return
 	
 Write_Arrow:
 	movlw	Arrow_l
 	addlw	0xff
 	lfsr	2, myArray    ; load address of the second message
 	call	LCD_Write_Message   ; write second message to the LCD
+	return
 	
 Move_Line1:
 	movlw	0x80		
@@ -176,6 +182,7 @@ Move_Line1:
 	movlw	10		; Introducing delay cause maybe the cursor is going too quick
 	movwf	delay_count	;	and missing the first character??
 	call	delay
+	return
 	
 Move_Line2:
 	movlw	0xC0		
@@ -183,6 +190,7 @@ Move_Line2:
 	movlw	10		; Introducing delay cause maybe the cursor is going too quick
 	movwf	delay_count	;	and missing the first character??
 	call	delay
+	return
 
 ; ** a few delay routines below here as LCD timing can be quite critical ****
 LCD_delay_ms:		    ; delay given in ms in W
