@@ -1,6 +1,6 @@
 #include <xc.inc>
 
-global  LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Send_Byte_D, LCD_Clear, ReadLine1, ReadLine2, ReadLine3
+global  LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Send_Byte_D, LCD_Clear
     
 extrn	delay_count, FirstLine, FirstLine_l, SecondLine, SecondLine_l, ThirdLine, ThirdLine_l, myArray, counter
 
@@ -10,6 +10,7 @@ LCD_cnt_h:	ds 1   ; reserve 1 byte for variable LCD_cnt_h
 LCD_cnt_ms:	ds 1   ; reserve 1 byte for ms counter
 LCD_tmp:	ds 1   ; reserve 1 byte for temporary use
 LCD_counter:	ds 1   ; reserve 1 byte for counting through nessage
+Key_Input:	ds 1
 
 	LCD_E	EQU 5	; LCD enable bit
     	LCD_RS	EQU 4	; LCD register select bit
@@ -134,7 +135,7 @@ LCD_Clear:
 	movwf	delay_count, A
 	call	delay
 	return
-
+	
 LCD_delay:			; delay routine	4 instruction loop == 250ns	    
 	movlw 	0x00		; W=0
 lcdlp1:	decf 	LCD_cnt_l, F, A	; no carry when 0x00 -> 0xff
@@ -146,41 +147,5 @@ delay:	decfsz	delay_count, A	; decrement until zero
 	bra	delay
 	return
 	
-ReadLine1:
-	lfsr	0, myArray	; Load FSR0 with address in RAM	
-	movlw	low highword(FirstLine)	; address of data in PM
-	movwf	TBLPTRU, A		; load upper bits to TBLPTRU
-	movlw	high(FirstLine)	; address of data in PM
-	movwf	TBLPTRH, A		; load high byte to TBLPTRH
-	movlw	low(FirstLine)	; address of data in PM
-	movwf	TBLPTRL, A		; load low byte to TBLPTRL
-	movlw	FirstLine_l	; bytes to read
-	movwf 	counter, A		; our counter register
-	return
-
-ReadLine2:
-	lfsr	0, myArray
-	movlw	low highword(SecondLine)
-	movwf	TBLPTRU, A
-	movlw	high(SecondLine)
-	movwf	TBLPTRH, A
-	movlw	low(SecondLine)
-	movwf	TBLPTRL, A
-	movlw	SecondLine_l
-	movwf	counter, A
-	return
-
-ReadLine3:
-	lfsr	0, myArray
-	movlw	low highword(ThirdLine)
-	movwf	TBLPTRU, A
-	movlw	high(ThirdLine)
-	movwf	TBLPTRH, A
-	movlw	low(ThirdLine)
-	movwf	TBLPTRL, A
-	movlw	ThirdLine_l
-	movwf	counter, A
-	return
-
     end
 

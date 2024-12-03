@@ -2,15 +2,15 @@
 
 extrn	UART_Setup, UART_Transmit_Message  ; external subroutines
 extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear, LCD_Send_Byte_D
-extrn	Keypad_Setup, Keypad_Read, Error_Check
+extrn	Keypad_Setup, Keypad_Read, Error_Check, button
     
     
-global	current_line, delay_count, Display_Menu, myArray, counter
+global	current_line, delay_count, myArray, counter
 global	FirstLine, FirstLine_l, SecondLine, SecondLine_l, ThirdLine, ThirdLine_l
 	
 psect	udata_acs   ; reserve data space in access ram
 counter:    ds 1    ; reserve one byte for a counter variable
-delay_count:ds 1    ; reserve one byte for counter in the delay routine
+delay_count:	ds 1    ; reserve one byte for counter in the delay routine
 current_line: 	ds 1; Holds the selected menu index (1-3)
     
 psect	udata_bank4 ; reserve data anywhere in RAM (here at 0x400)
@@ -24,7 +24,7 @@ FirstLine:
 	align	2
 	
 SecondLine:
-	db	'L', 'I', 'G', 'H', 'T',0 x0a
+	db	'L', 'I', 'G', 'H', 'T', 0x0a
 	SecondLine_l	EQU 6	; length of second message
 	align	2
 	
@@ -33,10 +33,11 @@ ThirdLine:
 	ThirdLine_l	EQU 9	; length of third line
 	align   2
 	
-Initial_Display:
-	db  'T', 'E', 'M', 'P', '=', '0', ',', ' ', 'M', 'O', 'I', 'S', 'T', '=', '1', ',', ' ', 'L', 'I', 'G', 'H', 'T', '=', '2', 0x0a
+InitialDisplay:
+	db  'T', 'E', 'M', 'P', '=', '1', ',', ' ', 'M', 'O', 'I', 'S', 'T', '=', '2', ',', ' ', 'L', 'I', 'G', 'H', 'T', '=', '3', 0x0a
 	InitialDisplay_l EQU 23 ; length of initial display message
 	align   2
+	
 psect	code, abs	
 rst: 	org 0x0
  	goto	setup
@@ -48,7 +49,6 @@ setup:
 	call   UART_Setup
 	call   LCD_Setup
 	call   Keypad_Setup
-	call   Display_Menu     ; initial display  
 	
 	    
 	movlw   high(InitialDisplay) ;show initial display message (buttons corresponding to what)
@@ -60,7 +60,7 @@ setup:
     
     
 	movlw   100             ; delay so person can read it
-	movwf   delay_count
+	movwf   delay_count, A
 	call    delay
     
 	call    LCD_Clear       ; clear display 
@@ -78,17 +78,17 @@ Main_Loop:
 	
 	movlw	0xEE               ; example value for '1'
 	subwf	WREG, W
-	btfsc	STATUS, Z          ; if it matches '1'
+	btfsc	STATUS, 2          ; if it matches '1'
 	goto	Display_Line1
 
 	movlw	0xED               ; example value for '2'
 	subwf	WREG, W
-	btfsc	STATUS, Z          ; if it matches '2'
+	btfsc	STATUS, 2         ; if it matches '2'
 	goto	Display_Line2
 
 	movlw	0xEB               ; eample value for '3'
 	subwf	WREG, W
-	btfsc	STATUS, Z          ; if it matches '3'
+	btfsc	STATUS, 2          ; if it matches '3'
 	goto	Display_Line3
 
 	goto	Main_Loop           ; if no match, continue loop
@@ -119,9 +119,7 @@ Display_Line3:
 	movlw	ThirdLine_l
 	call	LCD_Write_Message
 	goto	Main_Loop
-
-	end	rst	
-
+	
 delay:	decfsz	delay_count, A	; decrement until zero
 	bra	delay
 	return
