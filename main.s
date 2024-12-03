@@ -1,8 +1,9 @@
 #include <xc.inc>
 
 extrn	UART_Setup, UART_Transmit_Message  ; external subroutines
-extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear, LCD_Send_Byte_D, ReadLine1, ReadLine2, ReadLine3
-extrn	Check_Buttons, Move_Up, Move_Down, Select_Line
+extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear, LCD_Send_Byte_D
+extrn	Keypad_Setup, Keypad_Read, Error_Check
+    
     
 global	current_line, delay_count, Display_Menu, myArray, counter
 global	FirstLine, FirstLine_l, SecondLine, SecondLine_l, ThirdLine, ThirdLine_l
@@ -23,98 +24,104 @@ FirstLine:
 	align	2
 	
 SecondLine:
-	db	'L', 'i', 'g', 'h', 't',0x0a
+	db	'L', 'I', 'G', 'H', 'T',0 x0a
 	SecondLine_l	EQU 6	; length of second message
 	align	2
 	
 ThirdLine:
-	db	'M', 'o', 'i', 's', 't', 'u', 'r', 'e', 0x0a
+	db	'M', 'O', 'I', 'S', 'T', 'U', 'R', 'E', 0x0a
 	ThirdLine_l	EQU 9	; length of third line
-	align 2
+	align   2
 	
-Arrow:
-	db	0x7E
-    
+Initial_Display:
+	db  'T', 'E', 'M', 'P', '=', '0', ',', ' ', 'M', 'O', 'I', 'S', 'T', '=', '1', ',', ' ', 'L', 'I', 'G', 'H', 'T', '=', '2', 0x0a
+	InitialDisplay_l EQU 23 ; length of initial display message
+	align   2
 psect	code, abs	
 rst: 	org 0x0
  	goto	setup
 
 	; ******* Programme FLASH read Setup Code ***********************
-setup:	bcf    CFGS    
+setup:	
+	bcf    CFGS    
 	bsf    EEPGD
 	call   UART_Setup
 	call   LCD_Setup
-
-	clrf   current_line, A     ; Start from the first line
-	call   Display_Menu     ; Initial display
+	call   Keypad_Setup
+	call   Display_Menu     ; initial display  
 	
-	banksel	TRISB
-	movlw	0xFF
-	movwf	TRISB, A
-	
-	goto   start
-	
+	    
+	movlw   high(InitialDisplay) ;show initial display message (buttons corresponding to what)
+	movwf   FSR2H
+	movlw   low(InitialDisplay)
+	movwf   FSR2L
+	movlw   InitialDisplay_l
+	call    LCD_Write_Message
+    
+    
+	movlw   100             ; delay so person can read it
+	movwf   delay_count
+	call    delay
+    
+	call    LCD_Clear       ; clear display 
+    
+	banksel TRISB
+	movlw   0xFF
+	movwf   TRISB, A
+    
+	goto    start
 	; ******* Main programme ****************************************
 start:
-	call	Check_Buttons
-	goto	start
+Main_Loop:  
+	call	Keypad_Read
+	movf    button, W, A	   ;loading in key input from buttons. to w reg
 	
-Display_Menu:
-    call    LCD_Clear
-    
-    ; First Line
-    movlw   0x80            ; Move cursor to first line
-    call    LCD_Send_Byte_I
-    lfsr    2, FirstLine    ; Load first line address
-    movlw   FirstLine_l     ; Load length
-    call    LCD_Write_Message
-    
-    ; Check if arrow goes on first line
-    movf    current_line, W, A
-    sublw   1
-    bnz     print_second_line
-    movlw   0x80
-    call    LCD_Send_Byte_I
-    movf    Arrow, W, A     ; Load arrow value correctly
-    call    LCD_Send_Byte_D
-    
-print_second_line:
-    movlw   0xC0            ; Move cursor to second line
-    call    LCD_Send_Byte_I
-    lfsr    2, SecondLine   ; Load second line address
-    movlw   SecondLine_l    ; Load length
-    call    LCD_Write_Message
-    
-    ; Check if arrow goes on second line
-    movf    current_line, W, A
-    sublw   2
-    bnz     print_third_line
-    movlw   0xC0
-    call    LCD_Send_Byte_I
-    movf    Arrow, W, A     ; Load arrow value correctly
-    call    LCD_Send_Byte_D
-    
-print_third_line:
-    movlw   0x94            ; Move cursor to third line
-    call    LCD_Send_Byte_I
-    lfsr    2, ThirdLine    ; Load third line address
-    movlw   ThirdLine_l     ; Load length
-    call    LCD_Write_Message
-    
-    ; Check if arrow goes on third line
-    movf    current_line, W, A
-    sublw   3
-    bnz     menu_done
-    movlw   0x94
-    call    LCD_Send_Byte_I
-    movf    Arrow, W, A     ; Load arrow value correctly
-    call    LCD_Send_Byte_D
-    
-menu_done:
-    return
+	movlw	0xEE               ; example value for '1'
+	subwf	WREG, W
+	btfsc	STATUS, Z          ; if it matches '1'
+	goto	Display_Line1
 
-	
-; a delay subroutine if you need one, times around loop in delay_count
+	movlw	0xED               ; example value for '2'
+	subwf	WREG, W
+	btfsc	STATUS, Z          ; if it matches '2'
+	goto	Display_Line2
+
+	movlw	0xEB               ; eample value for '3'
+	subwf	WREG, W
+	btfsc	STATUS, Z          ; if it matches '3'
+	goto	Display_Line3
+
+	goto	Main_Loop           ; if no match, continue loop
+
+Display_Line1:
+	movlw	high(FirstLine)
+	movwf	FSR2H
+	movlw	low(FirstLine)
+	movwf	FSR2L
+	movlw	FirstLine_l
+	call	LCD_Write_Message
+	goto	Main_Loop
+
+Display_Line2:
+	movlw	high(SecondLine)
+	movwf	FSR2H
+	movlw	low(SecondLine)
+	movwf	FSR2L
+	movlw	SecondLine_l
+	call	LCD_Write_Message
+	goto	Main_Loop
+
+Display_Line3:
+	movlw	high(ThirdLine)
+	movwf	FSR2H
+	movlw	low(ThirdLine)
+	movwf	FSR2L
+	movlw	ThirdLine_l
+	call	LCD_Write_Message
+	goto	Main_Loop
+
+	end	rst	
+
 delay:	decfsz	delay_count, A	; decrement until zero
 	bra	delay
 	return
