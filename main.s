@@ -117,7 +117,7 @@ display_loop2:
 	
 	call	Move_Line1
 	
-	return		; goto current line in code
+	return		
 ;-----------------------------------------
 ; Delay
 ;-----------------------------------------
