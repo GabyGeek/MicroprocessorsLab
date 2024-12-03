@@ -2,7 +2,16 @@
     
 extrn	current_line
 extrn	Display_Menu, LCD_Clear
-global	Check_Buttons, Move_Up, Move_Down, Select_Line
+global	Check_Buttons, Move_Up, Move_Down, Select_Line, Button_Int
+    
+ 
+Button_Int:
+	btfss	TMR0IF		; check that this is timer0 interrupt
+	retfie	f		; if not then return
+	incf	LATJ, F, A	; increment PORTD
+	bcf	TMR0IF		; clear interrupt flag
+	retfie	f		; fast return from interrupt
+	return
     
 Check_Buttons:
     btfsc   PORTA, 0, A		; If bit 0 of PORTB is clear, skip the command
