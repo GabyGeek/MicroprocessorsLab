@@ -108,16 +108,9 @@ LCD_Enable:	    ; pulse enable bit LCD_E for 500ns
 	bcf	LATB, LCD_E, A	    ; Writes data to LCD
 	return
 	
-LCD_Clear:
-	movlw	0x01		; Clear display command
-	call	LCD_Send_Byte_I	; Send command to LCD
-	movlw	10
-	movwf	delay_count, A
-	call	delay
-	return	
 	
 ;-----------------------------------------
-; READING/WRITING to the LCD
+; READING/WRITING/CLEARING the LCD
 ;-----------------------------------------
 Read_Line1:
 	lfsr	0, myArray	; Load FSR0 with address in RAM	
@@ -192,6 +185,14 @@ Move_Line2:
 	call	delay
 	return
 
+LCD_Clear:
+	movlw	0x01		; Clear display command
+	call	LCD_Send_Byte_I	; Send command to LCD
+	movlw	10
+	movwf	delay_count, A
+	call	delay
+	return
+	
 ; ** a few delay routines below here as LCD timing can be quite critical ****
 LCD_delay_ms:		    ; delay given in ms in W
 	movwf	LCD_cnt_ms, A
@@ -214,13 +215,13 @@ LCD_delay_x4us:		    ; delay given in chunks of 4 microsecond in W
 
 LCD_delay:			; delay routine	4 instruction loop == 250ns	    
 	movlw 	0x00		; W=0
-lcdlp1:	
-	decf 	LCD_cnt_l, F, A	; no carry when 0x00 -> 0xff
+lcdlp1:	decf 	LCD_cnt_l, F, A	; no carry when 0x00 -> 0xff
 	subwfb 	LCD_cnt_h, F, A	; no carry when 0x00 -> 0xff
+	bc 	lcdlp1		; carry, then loop again
 	return			; carry reset so return
 
 delay:	decfsz	delay_count, A	; decrement until zero
 	bra	delay
 	return
-
-end
+	
+    end
