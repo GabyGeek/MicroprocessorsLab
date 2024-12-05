@@ -62,39 +62,12 @@ setup:
 ;-----------------------------------------
 ; Interrupt Service Routine
 ;-----------------------------------------
-	
-;-----------------------------------------
-; Initial Menu Display Routine; i don't think we need it
-;-----------------------------------------
-Initial_Menu:
-	call	Read_Line1
-	
-loop: 	tblrd*+				; one byte from PM to TABLAT, increment TBLPRT
-	movff	TABLAT, POSTINC0	; move data from TABLAT to (FSR0), inc FSR0	
-	decfsz	counter, A		; count down to zero
-	bra	loop			; keep going until finished
-
-	call	Write_Line1		; write first message
-	call	Move_Line2		; Move cursor to second line
-	call	Read_Line2
-
-loop2:
-	tblrd*+
-	movff	TABLAT, POSTINC0
-	decfsz	counter, A
-	bra	loop2
-	
-	call	Write_Line2
-	call	Move_Line1
-	
-	return			; goto current line in code
 
 ;-----------------------------------------
 ; Display Routine
 ;-----------------------------------------
 Display_Menu:
 	call	Read_Line1
-	call	Read_Arrow
 	
 display_loop:
         tblrd*+				; one byte from PM to TABLAT, increment TBLPRT
@@ -104,13 +77,28 @@ display_loop:
 
 	call	Write_Line1	    ; write first message
 	
-	movf    current_line, W     ; Move current_line value to W
+	movf    current_line, W, A     ; Move current_line value to W
 	sublw   1                   ; Subtract W from 1 (checking if current_line == 1)
-	btfss   STATUS, 2           ; Skip next instruction if not zero
-	call    Write_Arrow         ; Call if current_line == 1
+	btfss   STATUS, 2, A          ; Skip next instruction if not zero
+	call	Arrow_Line1
 	
 	call	Move_Line2	    ; Move cursor to second line
 	call	Read_Line2
+	
+Arrow_Line1:
+	call	Read_Arrow
+	call	display_loop_arrow1
+	return
+	
+display_loop_arrow1:
+        tblrd*+				; one byte from PM to TABLAT, increment TBLPRT
+	movff	TABLAT, POSTINC0	; move data from TABLAT to (FSR0), inc FSR0	
+	decfsz	counter, A		; count down to zero
+	bra	display_loop_arrow1		; keep going until finished
+	
+	call    Write_Arrow         ; Call if current_line == 1
+	return
+	
 
 display_loop2:
 	tblrd*+
@@ -120,9 +108,9 @@ display_loop2:
 	
 	call	Write_Line2
 	
-	movf    current_line, W     ; Move current_line value to W
+	movf    current_line, W, A     ; Move current_line value to W
 	sublw   1                   ; Subtract W from 1 (checking if current_line == 1)
-	btfsc   STATUS, 2           ; Skip next instruction if not zero
+	btfsc   STATUS, 2, A           ; Skip next instruction if not zero
 	call    Write_Arrow         ; Call if current_line == 1
 	
 	call	Move_Line1
