@@ -35,8 +35,8 @@ SecondLine:
 	align	2
 	
 Arrow:
-	db	'<', 0x0a		; currently just an indicator, not an arrow
-	Arrow_l	EQU 2
+	db	'<','-','-', 0x0a		; currently just an indicator, not an arrow
+	Arrow_l	EQU 4
 	align	2
 
 ;-----------------------------------------
@@ -56,6 +56,9 @@ setup:
 	movlw	0xFF
 	movwf	TRISA, A	; sets PORTA as the input
 	
+	movlw	0		; TESTING THE ARROW
+	movwf	current_line	; TESTING THE ARROW
+	
 	call	LCD_Setup	; setup LCD
 	goto	Display_Menu
 
@@ -67,6 +70,7 @@ setup:
 ; Display Routine
 ;-----------------------------------------
 Display_Menu:
+	call	Move_Line1
 	call	Read_Line1
 	
 display_loop:
@@ -84,6 +88,7 @@ display_loop:
 	
 	call	Move_Line2	    ; Move cursor to second line
 	call	Read_Line2
+	bra	display_loop2
 	
 Arrow_Line1:
 	call	Read_Arrow
@@ -111,11 +116,25 @@ display_loop2:
 	movf    current_line, W, A     ; Move current_line value to W
 	sublw   1                   ; Subtract W from 1 (checking if current_line == 1)
 	btfsc   STATUS, 2, A           ; Skip next instruction if not zero
-	call    Write_Arrow         ; Call if current_line == 1
+	call    Arrow_Line2         ; Call if current_line == 1
 	
-	call	Move_Line1
+	goto	$
 	
-	goto	$		
+Arrow_Line2:
+	call	Read_Arrow
+	call	display_loop_arrow2
+	return
+	
+display_loop_arrow2:
+        tblrd*+				; one byte from PM to TABLAT, increment TBLPRT
+	movff	TABLAT, POSTINC0	; move data from TABLAT to (FSR0), inc FSR0	
+	decfsz	counter, A		; count down to zero
+	bra	display_loop_arrow2		; keep going until finished
+	
+	call    Write_Arrow   
+	return
+	
+		
 ;-----------------------------------------
 ; Delay
 ;-----------------------------------------
