@@ -8,19 +8,19 @@ global	Check_Buttons, Move_Up, Move_Down, Select_Line, Button_Int
 Button_Int:
 	btfss	TMR0IF		; check that this is timer0 interrupt
 	retfie	f		; if not then return
-	incf	LATJ, F, A	; increment PORTD
+	incf	LATC, F, A	; increment PORT
 	bcf	TMR0IF		; clear interrupt flag
 	retfie	f		; fast return from interrupt
 	return
     
 Check_Buttons:
-    btfsc   PORTA, 0, A		; If bit 0 of PORTB is clear, skip the command
+    btfsc   PORTC, 0, A		; If bit 0 of PORTB is clear, skip the command
     call    Move_Up
     
-    btfsc   PORTA, 1, A
+    btfsc   PORTC, 1, A
     call    Move_Down
     
-    btfsc   PORTA, 2, A
+    btfsc   PORTC, 2, A
     call    Select_Line
     
     return
