@@ -172,7 +172,7 @@ Write_Arrow:
 Move_Line1:
 	movlw	0x80		
 	call	LCD_Send_Byte_I
-	movlw	10		; Introducing delay cause maybe the cursor is going too quick
+	movlw	200		; Introducing delay cause maybe the cursor is going too quick
 	movwf	delay_count	;	and missing the first character??
 	call	delay
 	return
