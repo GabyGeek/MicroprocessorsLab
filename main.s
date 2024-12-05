@@ -45,21 +45,16 @@ Arrow:
 psect	code, abs	
 rst: 	org 0x0
  	goto	setup
-
-int_hi:	org	0x0008
-	goto	Button_Int
 	    
 setup:	
 	bcf	CFGS		; point to Flash program memory  
 	bsf	EEPGD		; access Flash program memory
 	
-	movlw	0xFF
-	movwf	TRISC, A	; sets PORTA as the input
+	movlw   0xFF
+	movwf   TRISC, A                ; Set PORTC as input
 	
-	movlw	0		; TESTING THE ARROW
-	movwf	current_line	; TESTING THE ARROW
+	clrf	current_line
 	
-	call	Check_Buttons
 	call	LCD_Setup	; setup LCD
 	goto	Display_Menu
 
@@ -68,7 +63,7 @@ setup:
 ;-----------------------------------------
 
 ;-----------------------------------------
-; Display Routine
+; Display Routine: Line 1
 ;-----------------------------------------
 Display_Menu:
 	call	Move_Line1
@@ -105,7 +100,9 @@ display_loop_arrow1:
 	call    Write_Arrow         ; Call if current_line == 1
 	return
 	
-
+;-----------------------------------------
+; Display Routine: Line 2
+;-----------------------------------------
 display_loop2:
 	tblrd*+
 	movff	TABLAT, POSTINC0
