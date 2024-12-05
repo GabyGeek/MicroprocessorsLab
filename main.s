@@ -54,11 +54,12 @@ setup:
 	bsf	EEPGD		; access Flash program memory
 	
 	movlw	0xFF
-	movwf	TRISA, A	; sets PORTA as the input
+	movwf	TRISC, A	; sets PORTA as the input
 	
 	movlw	0		; TESTING THE ARROW
 	movwf	current_line	; TESTING THE ARROW
 	
+	call	Check_Buttons
 	call	LCD_Setup	; setup LCD
 	goto	Display_Menu
 
