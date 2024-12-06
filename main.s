@@ -46,8 +46,8 @@ psect	code, abs
 rst: 	org 0x0
  	goto	setup
 
-int_hi:	org	0x0008
-	goto	Button_Int
+int:	org	0x008
+	goto	ISR
 	    
 setup:	
 	bcf	CFGS		; point to Flash program memory  
@@ -56,8 +56,16 @@ setup:
 	movlw	0xFF
 	movwf	TRISC, A	; sets PORTA as the input
 	
-	movlw	0		; TESTING THE ARROW
-	movwf	current_line	; TESTING THE ARROW
+	clrf	current_line
+	
+	bsf	INTCON, GIE	; global interrupt enabled in the Interrupt Control Register
+				; if it's open, no current flows to the microprocessor, disables all interrupts
+				; if it's closed and at least one of the masks is also closed, current flows to pic18, enables all un-masked interrupts
+	bsf	INTCON, PEIE	; enable peripheral interrupts - located in the INTCON sfr
+	bsf	INTCON, IOCIE	; enable interrupt-on-change for port c
+	
+	movlw 0x07              ; Enable IOC for pins RC0, RC1, RC2
+	movwf IOCAP, A          ; Positive edge-triggered interrupts (use IOCAN for negative)
 	
 	call	Check_Buttons
 	call	LCD_Setup	; setup LCD
@@ -66,7 +74,33 @@ setup:
 ;-----------------------------------------
 ; Interrupt Service Routine
 ;-----------------------------------------
-
+ISR:
+	btfss   INTCON, IOCIF	; check if the interrupt flag (IF) on IOC (port C) has been raised => interrupt occurred
+	retfie			; return if no interrupt
+	
+	movf	PORTC, W	; read PORT C
+	andlw	0x07		; check which bits haven't been used
+	
+	btfsc	STATUS, 2	; 2 is the zero bit. 1 if the result of an arithmetic or logic operation is zero. Skips if no button pressed
+	retfie			
+	
+	movlw	0x01		; Checks RC0
+	andwf	PORTC, W
+	btfsc	STATUS, 2	; checks if the arithmetic logic above results in a 1. If not, skips the below command
+	call	Move_Up
+	
+	movlw	0x02		; Checks RC1
+	andwf	PORTC, W
+	btfsc	STATUS, 2
+	call	Move_Down
+	
+	movlw	0x04		; Checks RC2
+	andwf	PORTC, W
+	btfsc	STATUS, 2
+	call	Select_Line
+	
+	bcf	INTCON, IOCIF	; clears the IOC interrupt flag
+	retfie			; return from interrupt
 ;-----------------------------------------
 ; Display Routine
 ;-----------------------------------------
