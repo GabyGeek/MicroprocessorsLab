@@ -1,9 +1,9 @@
 #include <xc.inc>
 
 global  LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Send_Byte_D, LCD_Clear
-global	Read_Line1, Read_Line2,	Read_Arrow, Move_Line1, Move_Line2, Write_Line1, Write_Line2, Write_Arrow
+global	Read_Line1, Read_Line2,	Read_Line3, Read_Arrow, Move_Line1, Move_Line2, Write_Line1, Write_Line2, Write_Line3, Write_Arrow
     
-extrn	counter, delay_count, myArray, FirstLine, FirstLine_l, SecondLine, SecondLine_l, Arrow, Arrow_l
+extrn	counter, delay_count, myArray, FirstLine, FirstLine_l, SecondLine, SecondLine_l, ThirdLine, ThirdLine_l, Arrow, Arrow_l
 
 psect	udata_acs   ; named variables in access ram
 LCD_cnt_l:	ds 1   ; reserve 1 byte for variable LCD_cnt_l
@@ -175,7 +175,7 @@ Write_Line2:
 	return
 
 Write_Line3:
-	movlw	Thirdine_l	; output message to LCD
+	movlw	ThirdLine_l	; output message to LCD
 	addlw	0xff		; don't send the final carriage return to LCD
 	lfsr	2, myArray
 	call	LCD_Write_Message
@@ -192,7 +192,7 @@ Move_Line1:
 	movlw	0x80		
 	call	LCD_Send_Byte_I
 	movlw	200		; Introducing delay cause maybe the cursor is going too quick
-	movwf	delay_count	;	and missing the first character??
+	movwf	delay_count,A	;	and missing the first character??
 	call	delay
 	return
 	
@@ -200,7 +200,7 @@ Move_Line2:
 	movlw	0xC0		
 	call	LCD_Send_Byte_I
 	movlw	10		; Introducing delay cause maybe the cursor is going too quick
-	movwf	delay_count	;	and missing the first character??
+	movwf	delay_count,A	;	and missing the first character??
 	call	delay
 	return
 
