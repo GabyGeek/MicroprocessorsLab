@@ -136,6 +136,18 @@ Read_Line2:
 	movwf	counter, A
 	return
 	
+Read_Line3:
+	lfsr	0, myArray
+	movlw	low highword(ThirdLine)
+	movwf	TBLPTRU, A
+	movlw	high(ThirdLine)
+	movwf	TBLPTRH, A
+	movlw	low(ThirdLine)
+	movwf	TBLPTRL, A
+	movlw	ThirdLine_l
+	movwf	counter, A
+	return
+	
 Read_Arrow:
 	lfsr	0, myArray
 	movlw	low highword(Arrow)
@@ -161,7 +173,14 @@ Write_Line2:
 	lfsr	2, myArray    ; load address of the second message
 	call	LCD_Write_Message   ; write second message to the LCD
 	return
-	
+
+Write_Line3:
+	movlw	Thirdine_l	; output message to LCD
+	addlw	0xff		; don't send the final carriage return to LCD
+	lfsr	2, myArray
+	call	LCD_Write_Message
+	return	
+
 Write_Arrow:
 	movlw	Arrow_l
 	addlw	0xff
