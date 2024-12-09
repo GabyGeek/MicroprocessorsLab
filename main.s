@@ -2,7 +2,7 @@
 ;-----------------------------------------
 ; External and Global variables
 ;-----------------------------------------
-extrn	Check_Buttons, Move_Up, Move_Down, Select_Line, Button_Int  ; external subroutines
+extrn	Move_Up, Move_Down, Select_Line, Button_Int  ; external subroutines
 extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear
 extrn	Read_Line1, Read_Line2,	Read_Arrow, Move_Line1, Move_Line2, Write_Line1, Write_Line2, Write_Arrow
 
@@ -54,18 +54,23 @@ setup:
 	bsf	EEPGD		; access Flash program memory
 	
 	movlw	0xFF
-	movwf	TRISC, A	; sets PORTA as the input
+	movwf	TRISC, A	; sets PORTC as the input
 	
-	clrf	current_line
+	clrf	current_line, A
 	
-	bsf	INTCON, GIE	; global interrupt enabled in the Interrupt Control Register
+	movlw	0x07		; 1:256 prescale value (page 186 in the datasheet)
+	movwf	T0CON, A	; or is it TIMER0, bit 0 = T0PS0
+	
+	movlw 0xF0              ; Preload high byte (TMR0H)??
+	movwf TMR0H, A
+	movlw 0x60              ; Preload low byte (TMR0L) ??
+	movwf TMR0L, A
+	
+	bsf	INTCON, 5, A	; bit 5 = TMR0IE - enables/disables the TMR0 overflow interrupt
+	bsf	INTCON, 7, A	; bit 7 = GIE = global interrupt enabled in the Interrupt Control Register
 				; if it's open, no current flows to the microprocessor, disables all interrupts
 				; if it's closed and at least one of the masks is also closed, current flows to pic18, enables all un-masked interrupts
-	bsf	INTCON, PEIE	; enable peripheral interrupts - located in the INTCON sfr
-	bsf	INTCON, IOCIE	; enable interrupt-on-change for port c
-	
-	movlw 0x07              ; Enable IOC for pins RC0, RC1, RC2
-	movwf IOCAP, A          ; Positive edge-triggered interrupts (use IOCAN for negative)
+	bsf	INTCON, 6, A	; bit 6 = PEIE - enable peripheral interrupts - located in the INTCON sfr
 	
 	call	Check_Buttons
 	call	LCD_Setup	; setup LCD
@@ -75,32 +80,36 @@ setup:
 ; Interrupt Service Routine
 ;-----------------------------------------
 ISR:
-	btfss   INTCON, IOCIF	; check if the interrupt flag (IF) on IOC (port C) has been raised => interrupt occurred
-	retfie			; return if no interrupt
-	
-	movf	PORTC, W	; read PORT C
-	andlw	0x07		; check which bits haven't been used
-	
-	btfsc	STATUS, 2	; 2 is the zero bit. 1 if the result of an arithmetic or logic operation is zero. Skips if no button pressed
-	retfie			
-	
-	movlw	0x01		; Checks RC0
-	andwf	PORTC, W
-	btfsc	STATUS, 2	; checks if the arithmetic logic above results in a 1. If not, skips the below command
-	call	Move_Up
-	
-	movlw	0x02		; Checks RC1
-	andwf	PORTC, W
-	btfsc	STATUS, 2
-	call	Move_Down
-	
-	movlw	0x04		; Checks RC2
-	andwf	PORTC, W
-	btfsc	STATUS, 2
-	call	Select_Line
-	
-	bcf	INTCON, IOCIF	; clears the IOC interrupt flag
-	retfie			; return from interrupt
+        btfss INTCON, 2, A	; bit 2 = TMR0IF - checks if Timer0 interrupt occurred
+	retfie                  ; Return if no interrupt
+
+	; Reset Timer0 preload for 1 ms
+	movlw 0xF0              ; Preload high byte (TMR0H)
+	movwf TMR0H, A
+	movlw 0x60              ; Preload low byte (TMR0L)
+	movwf TMR0L, A
+
+	; Check buttons (polling PORTC pins 0?2)
+	movf PORTC, W, A        ; Read PORTC
+	andlw 0x07              ; Mask out unused bits (only RC0-RC2)
+
+	movlw 0x01              ; Check RC0
+	andwf PORTC, W, A
+	btfsc STATUS, 2, A      ; Skip if not pressed
+	call Move_Up            ; Call Move_Up if RC0 is pressed
+
+	movlw 0x02              ; Check RC1
+	andwf PORTC, W, A
+	btfsc STATUS, 2, A      ; Skip if not pressed
+	call Move_Down          ; Call Move_Down if RC1 is pressed
+
+	movlw 0x04              ; Check RC2
+	andwf PORTC, W, A
+	btfsc STATUS, 2, A      ; Skip if not pressed
+	call Select_Line        ; Call Select_Line if RC2 is pressed
+
+	bcf INTCON, 2, A	; bit 2 = TMR0IF - Clear Timer0 interrupt flag
+	retfie                  ; Return from interrupt
 ;-----------------------------------------
 ; Display Routine
 ;-----------------------------------------
