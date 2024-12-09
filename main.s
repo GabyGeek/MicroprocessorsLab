@@ -6,7 +6,9 @@ extrn	Move_Up, Move_Down, Select_Line, Button_Int  ; external subroutines
 extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear
 extrn	Read_Line1, Read_Line2,	Read_Arrow, Move_Line1, Move_Line2, Write_Line1, Write_Line2, Write_Arrow
 
-global	counter, current_line, delay_count, myArray, FirstLine, FirstLine_l, SecondLine, SecondLine_l, Arrow, Arrow_l, Display_Menu
+global	counter, current_line, delay_count, myArray, 
+global	FirstLine, FirstLine_l, SecondLine, SecondLine_l, ThirdLine, ThirdLine_l, Arrow, Arrow_l, 
+global	Display_Menu
     
 ;-----------------------------------------
 ; Holding space for constants
@@ -34,6 +36,12 @@ SecondLine:
 	SecondLine_l	EQU 7		; length of second message
 	align	2
 	
+	
+ThirdLine:
+	db	'M', 'o', 'i', 's', 't', 'u', 'r', 'e', 0x0a
+	ThirdLine_l   EQU	9	; length of data
+	align	2
+
 Arrow:
 	db	'<','-','-', 0x0a		; currently just an indicator, not an arrow
 	Arrow_l	EQU 4
@@ -111,7 +119,7 @@ ISR:
 	bcf INTCON, 2, A	; bit 2 = TMR0IF - Clear Timer0 interrupt flag
 	retfie                  ; Return from interrupt
 ;-----------------------------------------
-; Display Routine
+; Display Routine Line 1
 ;-----------------------------------------
 Display_Menu:
 	call	Move_Line1
@@ -148,6 +156,9 @@ display_loop_arrow1:
 	call    Write_Arrow         ; Call if current_line == 1
 	return
 	
+;-----------------------------------------
+; Display Routine Line 2
+;-----------------------------------------
 
 display_loop2:
 	tblrd*+
@@ -162,7 +173,11 @@ display_loop2:
 	btfsc   STATUS, 2, A           ; Skip next instruction if not zero
 	call    Arrow_Line2         ; Call if current_line == 1
 	
+	movlw	3
+	cpfseq	current_line, A	    ; skip the next command if current_line == 3
 	goto	$
+	
+	call	display_loop3
 	
 Arrow_Line2:
 	call	Read_Arrow
@@ -178,7 +193,12 @@ display_loop_arrow2:
 	call    Write_Arrow   
 	return
 	
-		
+;-----------------------------------------
+; Display Routine Line 3
+;-----------------------------------------
+display_loop3:
+    
+	goto $
 ;-----------------------------------------
 ; Delay
 ;-----------------------------------------
