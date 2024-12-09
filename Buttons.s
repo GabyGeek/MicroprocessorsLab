@@ -2,8 +2,20 @@
     
 extrn	current_line
 extrn	Display_Menu, LCD_Clear
-global  Move_Up, Move_Down, Select_Line, Button_Int
-       
+global	Check_Buttons, Move_Up, Move_Down, Select_Line, Button_Int
+    
+Check_Buttons:
+    btfsc   PORTC, 0, A		; If bit 0 of PORTB is clear, skip the command
+    call    Move_Up
+    
+    btfsc   PORTC, 1, A
+    call    Move_Down
+    
+    btfsc   PORTC, 2, A
+    call    Select_Line
+    
+    return
+    
 Move_Up:
    ; if on line 2, make current line 0
    movlw    0
