@@ -2,12 +2,12 @@
 ;-----------------------------------------
 ; External and Global variables
 ;-----------------------------------------
-extrn	Move_Up, Move_Down, Select_Line, Button_Int  ; external subroutines
+extrn	Check_Buttons, Move_Up, Move_Down, Select_Line  ; external subroutines
 extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear
-extrn	Read_Line1, Read_Line2,	Read_Arrow, Move_Line1, Move_Line2, Write_Line1, Write_Line2, Write_Arrow
+extrn	Read_Line1, Read_Line2,	Read_Line3, Read_Arrow, Move_Line1, Move_Line2, Write_Line1, Write_Line2, Write_Line3, Write_Arrow
 
-global	counter, current_line, delay_count, myArray, 
-global	FirstLine, FirstLine_l, SecondLine, SecondLine_l, ThirdLine, ThirdLine_l, Arrow, Arrow_l, 
+global	counter, current_line, delay_count, myArray 
+global	FirstLine, FirstLine_l, SecondLine, SecondLine_l, ThirdLine, ThirdLine_l, Arrow, Arrow_l 
 global	Display_Menu
     
 ;-----------------------------------------
@@ -80,7 +80,6 @@ setup:
 				; if it's closed and at least one of the masks is also closed, current flows to pic18, enables all un-masked interrupts
 	bsf	INTCON, 6, A	; bit 6 = PEIE - enable peripheral interrupts - located in the INTCON sfr
 	
-	call	Check_Buttons
 	call	LCD_Setup	; setup LCD
 	goto	Display_Menu
 
@@ -177,7 +176,10 @@ display_loop2:
 	cpfseq	current_line, A	    ; skip the next command if current_line == 3
 	goto	$
 	
-	call	display_loop3
+	call	LCD_Clear	    ; clears the LCD
+	call	Move_Line1	    ; Move cursor to first line
+	call	Read_Line3
+	bra	display_loop3
 	
 Arrow_Line2:
 	call	Read_Arrow
@@ -197,7 +199,32 @@ display_loop_arrow2:
 ; Display Routine Line 3
 ;-----------------------------------------
 display_loop3:
-    
+	tblrd*+				; one byte from PM to TABLAT, increment TBLPRT
+	movff	TABLAT, POSTINC0	; move data from TABLAT to (FSR0), inc FSR0	
+	decfsz	counter, A		; count down to zero
+	bra	display_loop		; keep going until finished
+
+	call	Write_Line3		; write first message
+	
+	movf    current_line, W, A     ; Move current_line value to W
+	sublw   3			; Subtract W from 3 (checking if current_line == 3)
+	btfss   STATUS, 2, A		; Skip next instruction if not zero
+	call	Arrow_Line3
+
+Arrow_Line3:
+	call	Read_Arrow
+	call	display_loop_arrow3
+	return
+	
+display_loop_arrow3:
+        tblrd*+				; one byte from PM to TABLAT, increment TBLPRT
+	movff	TABLAT, POSTINC0	; move data from TABLAT to (FSR0), inc FSR0	
+	decfsz	counter, A		; count down to zero
+	bra	display_loop_arrow3		; keep going until finished
+	
+	call    Write_Arrow   
+	return
+	
 	goto $
 ;-----------------------------------------
 ; Delay
