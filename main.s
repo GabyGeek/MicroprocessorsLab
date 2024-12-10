@@ -43,8 +43,8 @@ ThirdLine:
 	align	2
 
 Arrow:
-	db	'<','-','-', 0x0a		; currently just an indicator, not an arrow
-	Arrow_l	EQU 4
+	db	' ','<','-','-', 0x0a		; currently just an indicator, not an arrow
+	Arrow_l	EQU 5
 	align	2
 
 ;-----------------------------------------
@@ -66,13 +66,16 @@ setup:
 	
 	clrf	current_line, A
 	
+	movlw	0
+	movwf	current_line, A	    ; FOR TESTING ONLY
+	
 	movlw	0x07		; 1:256 prescale value (page 186 in the datasheet)
 	movwf	T0CON, A	; or is it TIMER0, bit 0 = T0PS0
 	
-	movlw 0xF0              ; Preload high byte (TMR0H)??
-	movwf TMR0H, A
-	movlw 0x60              ; Preload low byte (TMR0L) ??
-	movwf TMR0L, A
+	movlw	0xF0              ; Preload high byte (TMR0H)??
+	movwf	TMR0H, A
+	movlw	0x60              ; Preload low byte (TMR0L) ??
+	movwf	TMR0L, A
 	
 	bsf	INTCON, 5, A	; bit 5 = TMR0IE - enables/disables the TMR0 overflow interrupt
 	bsf	INTCON, 7, A	; bit 7 = GIE = global interrupt enabled in the Interrupt Control Register
@@ -87,40 +90,49 @@ setup:
 ; Interrupt Service Routine
 ;-----------------------------------------
 ISR:
-        btfss INTCON, 2, A	; bit 2 = TMR0IF - checks if Timer0 interrupt occurred
+        btfss	INTCON, 2, A	; bit 2 = TMR0IF - checks if Timer0 interrupt occurred
 	retfie                  ; Return if no interrupt
 
 	; Reset Timer0 preload for 1 ms
-	movlw 0xF0              ; Preload high byte (TMR0H)
-	movwf TMR0H, A
-	movlw 0x60              ; Preload low byte (TMR0L)
-	movwf TMR0L, A
+	movlw	0xF0              ; Preload high byte (TMR0H)
+	movwf	TMR0H, A
+	movlw	0x60              ; Preload low byte (TMR0L)
+	movwf	TMR0L, A
 
 	; Check buttons (polling PORTC pins 0?2)
-	movf PORTC, W, A        ; Read PORTC
-	andlw 0x07              ; Mask out unused bits (only RC0-RC2)
+	movf	PORTC, W, A        ; Read PORTC
+	andlw	0x07              ; Mask out unused bits (only RC0-RC2)
 
-	movlw 0x01              ; Check RC0
-	andwf PORTC, W, A
-	btfsc STATUS, 2, A      ; Skip if not pressed
-	call Move_Up            ; Call Move_Up if RC0 is pressed
+	movlw	0x01              ; Check RC0
+	andwf	PORTC, W, A
+	btfsc	STATUS, 2, A      ; Skip if not pressed
+	call	Move_Up            ; Call Move_Up if RC0 is pressed
 
-	movlw 0x02              ; Check RC1
-	andwf PORTC, W, A
-	btfsc STATUS, 2, A      ; Skip if not pressed
-	call Move_Down          ; Call Move_Down if RC1 is pressed
+	movlw	0x02              ; Check RC1
+	andwf	PORTC, W, A
+	btfsc	STATUS, 2, A      ; Skip if not pressed
+	call	Move_Down          ; Call Move_Down if RC1 is pressed
 
-	movlw 0x04              ; Check RC2
-	andwf PORTC, W, A
-	btfsc STATUS, 2, A      ; Skip if not pressed
-	call Select_Line        ; Call Select_Line if RC2 is pressed
+	movlw	0x04              ; Check RC2
+	andwf	PORTC, W, A
+	btfsc	STATUS, 2, A      ; Skip if not pressed
+	call	Select_Line        ; Call Select_Line if RC2 is pressed
 
-	bcf INTCON, 2, A	; bit 2 = TMR0IF - Clear Timer0 interrupt flag
+	bcf	INTCON, 2, A	; bit 2 = TMR0IF - Clear Timer0 interrupt flag
 	retfie                  ; Return from interrupt
+;-----------------------------------------
+; Display Routine - Checking for Line 3
+;-----------------------------------------
+Display_Menu:
+	movf	current_line, W, A
+	sublw	2
+	btfsc	STATUS, 2, A
+	call	Second_Menu
+	
 ;-----------------------------------------
 ; Display Routine Line 1
 ;-----------------------------------------
-Display_Menu:
+First_Menu:
 	call	Move_Line1
 	call	Read_Line1
 	
@@ -172,14 +184,7 @@ display_loop2:
 	btfsc   STATUS, 2, A           ; Skip next instruction if not zero
 	call    Arrow_Line2         ; Call if current_line == 1
 	
-	movlw	3
-	cpfseq	current_line, A	    ; skip the next command if current_line == 3
-	goto	$
-	
-	call	LCD_Clear	    ; clears the LCD
-	call	Move_Line1	    ; Move cursor to first line
-	call	Read_Line3
-	bra	display_loop3
+	goto	$	
 	
 Arrow_Line2:
 	call	Read_Arrow
@@ -198,11 +203,16 @@ display_loop_arrow2:
 ;-----------------------------------------
 ; Display Routine Line 3
 ;-----------------------------------------
+Second_Menu:
+	;call	LCD_Clear	    ; clears the LCD
+	call	Move_Line1	    ; Move cursor to first line
+	call	Read_Line3
+	
 display_loop3:
 	tblrd*+				; one byte from PM to TABLAT, increment TBLPRT
 	movff	TABLAT, POSTINC0	; move data from TABLAT to (FSR0), inc FSR0	
 	decfsz	counter, A		; count down to zero
-	bra	display_loop		; keep going until finished
+	bra	display_loop3		; keep going until finished
 
 	call	Write_Line3		; write first message
 	
@@ -210,6 +220,8 @@ display_loop3:
 	sublw   3			; Subtract W from 3 (checking if current_line == 3)
 	btfss   STATUS, 2, A		; Skip next instruction if not zero
 	call	Arrow_Line3
+	
+	goto	$
 
 Arrow_Line3:
 	call	Read_Arrow
@@ -225,7 +237,6 @@ display_loop_arrow3:
 	call    Write_Arrow   
 	return
 	
-	goto $
 ;-----------------------------------------
 ; Delay
 ;-----------------------------------------
