@@ -2,11 +2,7 @@
     
 extrn	current_line, delay_count
 extrn	Display_Menu, LCD_Clear
-global	Check_Buttons, Move_Up, Move_Down, Select_Line, Button_Int
-    
- 
-Button_Int:
-    return
+global	Check_Buttons, Move_Up, Move_Down, Select_Line
     
 Check_Buttons:
     btfsc   PORTC, 0, A		; If bit 0 of PORTB is clear, skip the command
