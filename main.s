@@ -90,15 +90,15 @@ setup:
 ;	
 	clrf	current_line, A
 	
-	movlw	1
+	movlw	2
 	movwf	current_line, A	    ; FOR TESTING ONLY
 	
-	movlw	0x07		; 1:256 prescale value (page 186 in the datasheet)
+	movlw	0x87		; 1 for bit 7 to turn on the timer and 111 for bits 0-2 1:256 prescale value (page 186 in the datasheet)
 	movwf	T0CON, A	; or is it TIMER0, bit 0 = T0PS0
 	
-	movlw	0xF0              ; Preload high byte (TMR0H)??
+	movlw	0xFF              ; Preload high byte (TMR0H)??
 	movwf	TMR0H, A
-	movlw	0x60              ; Preload low byte (TMR0L) ??
+	movlw	0xFC              ; Preload low byte (TMR0L) ??
 	movwf	TMR0L, A
 	
 	bsf	INTCON, 5, A	; bit 5 = TMR0IE - enables/disables the TMR0 overflow interrupt
@@ -110,7 +110,7 @@ setup:
 	call	LCD_Setup	; setup LCD
 ;	call	Set_Ranges
 ;	call	Temp_Compare
-	goto	Display_Menu
+	goto	main_loop
 
 ;-----------------------------------------
 ; Interrupt Service Routine
@@ -120,9 +120,9 @@ ISR:
 	retfie                  ; Return if no interrupt
 
 	; Reset Timer0 preload for 1 ms
-	movlw	0xF0              ; Preload high byte (TMR0H)
+	movlw	0xFF              ; Preload high byte (TMR0H)
 	movwf	TMR0H, A
-	movlw	0x60              ; Preload low byte (TMR0L)
+	movlw	0xFC              ; Preload low byte (TMR0L)
 	movwf	TMR0L, A
 
 	movf	PORTD, W, A        ; Read PORTC
@@ -142,11 +142,20 @@ ISR:
 ;-----------------------------------------
 ; Display Routine - Checking for Line 3
 ;-----------------------------------------
+main_loop:
+	;call	LCD_Clear
+	call	Display_Menu
+	call	Delay
+	goto	main_loop
+	
 Display_Menu:
 	movf	current_line, W, A
 	sublw	2
 	btfsc	STATUS, 2, A
 	call	Second_Menu
+	
+	call	First_Menu
+	return
 	
 ;-----------------------------------------
 ; Display Routine Line 1
@@ -203,7 +212,7 @@ display_loop2:
 	btfsc   STATUS, 2, A           ; Skip next instruction if not zero
 	call    Arrow_Line2         ; Call if current_line == 1
 	
-	goto	$	
+	goto	$
 	
 Arrow_Line2:
 	call	Read_Arrow
@@ -236,8 +245,8 @@ display_loop3:
 	call	Write_Line3		; write first message
 	
 	movf    current_line, W, A     ; Move current_line value to W
-	sublw   3			; Subtract W from 3 (checking if current_line == 3)
-	btfss   STATUS, 2, A		; Skip next instruction if not zero
+	sublw   2			; Subtract W from 3 (checking if current_line == 3)
+	btfsc   STATUS, 2, A		; Skip next instruction if not zero
 	call	Arrow_Line3
 	
 	goto	$
@@ -338,13 +347,13 @@ display_loop_arrow3:
 delay:	decfsz	delay_count, A	    ; decrement until zero
 	bra	delay
 	return
-;Delay:
-;    movlw   0xFF
-;    movwf   Delay1
-;    return
-;Delay_Loop:
-;    decfsz  Delay1, F
-;    goto    Delay_Loop
-;    return
+Delay:
+    movlw   0xFF
+    movwf   Delay
+    return
+Delay_Loop:
+    decfsz  Delay, F
+    goto    Delay_Loop
+    return
     
 	end	rst
