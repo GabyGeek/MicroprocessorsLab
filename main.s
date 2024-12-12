@@ -5,6 +5,7 @@
 extrn	Check_Buttons, Move_Up, Move_Down, Select_Line  ; external subroutines
 extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear
 extrn	Read_Line1, Read_Line2,	Read_Line3, Read_Arrow, Move_Line1, Move_Line2, Write_Line1, Write_Line2, Write_Line3, Write_Arrow
+;extrn	Final_Temp_H, Final_Temp_L
 
 global	counter, current_line, delay_count, myArray 
 global	FirstLine, FirstLine_l, SecondLine, SecondLine_l, ThirdLine, ThirdLine_l, Arrow, Arrow_l 
@@ -21,7 +22,24 @@ current_line:	ds  1		    ; current line of menu (0x80 = line 1, 0xC0 = line 2, d
 psect	udata_bank4		    ; reserve data anywhere in RAM (here at 0x400)
 myArray:    ds 0x80		    ;reserve 128 bytes for message data
 
-    
+;-----------------------------------------
+; Sensor Constants
+;-----------------------------------------
+;psecT	ideal_ranges, class=RAM
+;moisture_l_L:	ds 1	; lower limit of ideal range for moisture percentage
+;moisture_l_H:	ds 1
+;moisture_u_L:	ds 1	; upper limit of ideal range moisture percentage
+;moisture_u_H:	ds 1
+;light_l_L:  ds 1
+;light_l_H:  ds 1
+;light_u_L:  ds 1
+;light_u_H:  ds 1
+;temp_l_L:   ds 1
+;temp_l_H:   ds 1
+;temp_u_L:   ds 1
+;temp_u_H:   ds 1
+;Delay1:	ds 1
+;    
 ;-----------------------------------------
 ; Loading the Messages
 ;-----------------------------------------
@@ -62,11 +80,17 @@ setup:
 	bsf	EEPGD		; access Flash program memory
 	
 	movlw	0xFF
-	movwf	TRISC, A	; sets PORTC as the input
+	movwf	TRISD, A	; sets PORTD as the input
 	
+;	bsf TRISE, 0, A	; configuring the LEDs to PORT E
+;	bsf TRISE, 1, A	; configuring the LEDs to PORT E
+;	bsf TRISE, 2, A	; configuring the LEDs to PORT E
+;	bsf TRISE, 3, A	; configuring the LEDs to PORT E
+;	bsf TRISE, 4, A	; configuring the LEDs to PORT E
+;	
 	clrf	current_line, A
 	
-	movlw	0
+	movlw	1
 	movwf	current_line, A	    ; FOR TESTING ONLY
 	
 	movlw	0x07		; 1:256 prescale value (page 186 in the datasheet)
@@ -84,6 +108,8 @@ setup:
 	bsf	INTCON, 6, A	; bit 6 = PEIE - enable peripheral interrupts - located in the INTCON sfr
 	
 	call	LCD_Setup	; setup LCD
+;	call	Set_Ranges
+;	call	Temp_Compare
 	goto	Display_Menu
 
 ;-----------------------------------------
@@ -99,27 +125,20 @@ ISR:
 	movlw	0x60              ; Preload low byte (TMR0L)
 	movwf	TMR0L, A
 
-	; Check buttons (polling PORTC pins 0?2)
-	movf	PORTC, W, A        ; Read PORTC
-	andlw	0x07              ; Mask out unused bits (only RC0-RC2)
+	movf	PORTD, W, A        ; Read PORTC
 
-	movlw	0x01              ; Check RC0
-	andwf	PORTC, W, A
-	btfsc	STATUS, 2, A      ; Skip if not pressed
+	btfsc	PORTD, 0, A	    ; RC0
 	call	Move_Up            ; Call Move_Up if RC0 is pressed
 
-	movlw	0x02              ; Check RC1
-	andwf	PORTC, W, A
-	btfsc	STATUS, 2, A      ; Skip if not pressed
+	btfsc	PORTD, 1, A	    ; RC1
 	call	Move_Down          ; Call Move_Down if RC1 is pressed
 
-	movlw	0x04              ; Check RC2
-	andwf	PORTC, W, A
-	btfsc	STATUS, 2, A      ; Skip if not pressed
+	btfsc	PORTD, 2, A	    ; RC2
 	call	Select_Line        ; Call Select_Line if RC2 is pressed
 
-	bcf	INTCON, 2, A	; bit 2 = TMR0IF - Clear Timer0 interrupt flag
-	retfie                  ; Return from interrupt
+	bcf	INTCON, 2, A	    ; bit 2 = TMR0IF - Clear Timer0 interrupt flag
+	retfie			    ; Return from interrupt
+	
 ;-----------------------------------------
 ; Display Routine - Checking for Line 3
 ;-----------------------------------------
@@ -236,12 +255,96 @@ display_loop_arrow3:
 	
 	call    Write_Arrow   
 	return
-	
+
+;;-----------------------------------------
+;; Ideal Ranges for Sensors - LED Flashes
+;;-----------------------------------------
+;Set_Ranges:
+;    movlw   0x00    ; set lower limit for temp 21 degrees C - HIGH BYTE
+;    movwf   temp_l_H
+;    movlw   0x15    ; set lower limit for temp 21 degrees C - LOW BYTE
+;    movwf   temp_l_L
+;   
+;    movlw   0x00    ; set upper limit for temp 29 degrees C - HIGH BYTE
+;    movwf   temp_u_H
+;    movlw   0x1D    ; set upper limit for temp 29 degrees C - LOW BYTE
+;    movwf   temp_u_L
+;   
+;    movlw   0x1B    ; set upper limit for lux 7000lux - HIGH BYTE
+;    movwf   light_u_H
+;    movlw   0x58    ; set upper limit for lux 7000lux - LOW BYTE
+;    movwf   light_u_L
+;   
+;    movlw   0x13    ; set lower limit for lux 5000lux - HIGH BYTE
+;    movwf   light_l_H
+;    movlw   0x88    ; set lower limit for lux 5000lux - LOW BYTE
+;    movwf   light_l_L
+;   
+;    movlw   0x00    ; set upper limit for moisture level 80% - HIGH BYTE
+;    movwf   moisture_u_L
+;    movlw   0x50    ; set upper limit for moisture level 80% - LOW BYTE
+;    movwf   moisture_u_H
+;   
+;    movlw   0x00    ; set lower limit for moisture level 41% - HIGH BYTE
+;    movwf   moisture_l_H
+;    movlw   0x29    ; set lower limit for moisture level 41% - LOW BYTE
+;    movwf   moisture_l_L
+;    return
+;;-----------------------------------------
+;; Comparisons
+;;-----------------------------------------	
+;Temp_Compare:
+;    movf    Final_Temp_H, W ; if high byte = lower limit, continue
+;    sublw   temp_l_H	; subtract temp from lower limit
+;    btfss   STATUS, 2	; if set then the two bytes are equal, if not set then continue
+;    btfsc   STATUS, 0	; if set then final temp < lower limit, if clear then
+;    call    Limit
+;   
+;    movf    Final_Temp_L, W
+;    sublw   temp_l_L
+;    btfss   STATUS, 2
+;    btfsc   STATUS, 0
+;    call    Limit
+;   
+;    movf    temp_u_H, W
+;    btfss   STATUS, 2
+;    btfsc   STATUS, 0
+;    call    Limit
+;   
+;    movf    temp_u_L, W
+;    btfss   STATUS, 2
+;    btfsc   STATUS, 0
+;    call    Limit
+;   
+;    call    End_Compare
+;    return
+;   
+;Limit:
+;    call    Activate_LEDs
+;    call    End_Compare
+;    return
+;
+;End_Compare:
+;    return
+;   
+;Activate_LEDs:
+;    movlw   0x0F
+;    xorwf   PORTE, F
+;    call    Delay
+;    return
 ;-----------------------------------------
-; Delay
+; Delays
 ;-----------------------------------------
 delay:	decfsz	delay_count, A	    ; decrement until zero
 	bra	delay
 	return
-
+;Delay:
+;    movlw   0xFF
+;    movwf   Delay1
+;    return
+;Delay_Loop:
+;    decfsz  Delay1, F
+;    goto    Delay_Loop
+;    return
+    
 	end	rst
