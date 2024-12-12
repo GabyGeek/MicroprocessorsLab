@@ -20,7 +20,7 @@ Move_Up:
    ; if on line 2, make current line 0
    movlw    0
    movwf    current_line, A
-   movlw    200		    ; delay for debouncing of the button
+   movlw    0XFF		    ; delay for debouncing of the button
    movwf    delay_count, A
    call	    delay
    return
@@ -29,7 +29,7 @@ Move_Down:
     ; if on line 1, make current line 1
    movlw    1
    movwf    current_line, A
-   movlw    200		    ; delay for debouncing of the button
+   movlw    0xFF		    ; delay for debouncing of the button
    movwf    delay_count, A
    call	    delay
    return
@@ -37,7 +37,9 @@ Move_Down:
     
 Select_Line:
     ;call LCD_Clear		; Currently just clears the LCD display
-   movlw    200		    ; delay for debouncing of the button
+   movlw    2
+   movwf    current_line, A
+   movlw    0XFF		    ; delay for debouncing of the button
    movwf    delay_count, A
    call	    delay
    return
