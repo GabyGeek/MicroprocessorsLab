@@ -3,9 +3,10 @@
 ; External and Global variables
 ;-----------------------------------------
 extrn	Check_Buttons, Move_Up, Move_Down, Select_Line  ; external subroutines
-extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear
+extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear, LCD_Send_Byte_D
 extrn	Read_Line1, Read_Line2,	Read_Line3, Read_Arrow, Move_Line1, Move_Line2, Write_Line1, Write_Line2, Write_Line3, Write_Arrow
-;extrn	Final_Temp_H, Final_Temp_L
+extrn	Final_Moisture_H, Final_Moisture_L, Final_Temp_H, Final_Temp_L, Final_Light_H, Final_Light_L    
+extrn	ADC_Setup, ADC_Read, Right_Shift, Read_Sensors
 
 global	counter, current_line, delay_count, myArray 
 global	FirstLine, FirstLine_l, SecondLine, SecondLine_l, ThirdLine, ThirdLine_l, Arrow, Arrow_l 
@@ -19,27 +20,28 @@ counter:	ds 1		    ; reserve one byte for a counter variable
 delay_count:	ds  1		    ; reserve one byte for counter in the delay routine
 current_line:	ds  1		    ; current line of menu (0x80 = line 1, 0xC0 = line 2, diff = 0x40) 
     
-psect	udata_bank4		    ; reserve data anywhere in RAM (here at 0x400)
-myArray:    ds 0x80		    ;reserve 128 bytes for message data
-
 ;-----------------------------------------
 ; Sensor Constants
 ;-----------------------------------------
-;psecT	ideal_ranges, class=RAM
-;moisture_l_L:	ds 1	; lower limit of ideal range for moisture percentage
-;moisture_l_H:	ds 1
-;moisture_u_L:	ds 1	; upper limit of ideal range moisture percentage
-;moisture_u_H:	ds 1
-;light_l_L:  ds 1
-;light_l_H:  ds 1
-;light_u_L:  ds 1
-;light_u_H:  ds 1
-;temp_l_L:   ds 1
-;temp_l_H:   ds 1
-;temp_u_L:   ds 1
-;temp_u_H:   ds 1
-;Delay1:	ds 1
-;    
+moisture_l_L:	ds 1	; lower limit of ideal range for moisture percentage
+moisture_l_H:	ds 1
+moisture_u_L:	ds 1	; upper limit of ideal range moisture percentage
+moisture_u_H:	ds 1
+light_l_L:  ds 1
+light_l_H:  ds 1
+light_u_L:  ds 1
+light_u_H:  ds 1
+temp_l_L:   ds 1
+temp_l_H:   ds 1
+temp_u_L:   ds 1
+temp_u_H:   ds 1
+delay1:	ds 1
+Temp_ASCII_H:	ds 1
+Temp_ASCII_L:	ds 1
+Temp_ASCII: ds 1
+    
+psect	udata_bank4		    ; reserve data anywhere in RAM (here at 0x400)
+myArray:    ds 0x80		    ;reserve 128 bytes for message data
 ;-----------------------------------------
 ; Loading the Messages
 ;-----------------------------------------
@@ -82,12 +84,12 @@ setup:
 	movlw	0xFF
 	movwf	TRISD, A	; sets PORTD as the input
 	
-;	bsf TRISE, 0, A	; configuring the LEDs to PORT E
-;	bsf TRISE, 1, A	; configuring the LEDs to PORT E
-;	bsf TRISE, 2, A	; configuring the LEDs to PORT E
-;	bsf TRISE, 3, A	; configuring the LEDs to PORT E
-;	bsf TRISE, 4, A	; configuring the LEDs to PORT E
-;	
+	bsf TRISE, 0, A	; configuring the LEDs to PORT E
+	bsf TRISE, 1, A	; configuring the LEDs to PORT E
+	bsf TRISE, 2, A	; configuring the LEDs to PORT E
+	bsf TRISE, 3, A	; configuring the LEDs to PORT E
+	bsf TRISE, 4, A	; configuring the LEDs to PORT E
+	
 	clrf	current_line, A
 	
 	movlw	2
@@ -107,9 +109,10 @@ setup:
 				; if it's closed and at least one of the masks is also closed, current flows to pic18, enables all un-masked interrupts
 	bsf	INTCON, 6, A	; bit 6 = PEIE - enable peripheral interrupts - located in the INTCON sfr
 	
+	call	ADC_Setup
+	call	Read_Sensors
+	
 	call	LCD_Setup	; setup LCD
-;	call	Set_Ranges
-;	call	Temp_Compare
 	goto	main_loop
 
 ;-----------------------------------------
@@ -265,94 +268,258 @@ display_loop_arrow3:
 	call    Write_Arrow   
 	return
 
-;;-----------------------------------------
-;; Ideal Ranges for Sensors - LED Flashes
-;;-----------------------------------------
-;Set_Ranges:
-;    movlw   0x00    ; set lower limit for temp 21 degrees C - HIGH BYTE
-;    movwf   temp_l_H
-;    movlw   0x15    ; set lower limit for temp 21 degrees C - LOW BYTE
-;    movwf   temp_l_L
-;   
-;    movlw   0x00    ; set upper limit for temp 29 degrees C - HIGH BYTE
-;    movwf   temp_u_H
-;    movlw   0x1D    ; set upper limit for temp 29 degrees C - LOW BYTE
-;    movwf   temp_u_L
-;   
-;    movlw   0x1B    ; set upper limit for lux 7000lux - HIGH BYTE
-;    movwf   light_u_H
-;    movlw   0x58    ; set upper limit for lux 7000lux - LOW BYTE
-;    movwf   light_u_L
-;   
-;    movlw   0x13    ; set lower limit for lux 5000lux - HIGH BYTE
-;    movwf   light_l_H
-;    movlw   0x88    ; set lower limit for lux 5000lux - LOW BYTE
-;    movwf   light_l_L
-;   
-;    movlw   0x00    ; set upper limit for moisture level 80% - HIGH BYTE
-;    movwf   moisture_u_L
-;    movlw   0x50    ; set upper limit for moisture level 80% - LOW BYTE
-;    movwf   moisture_u_H
-;   
-;    movlw   0x00    ; set lower limit for moisture level 41% - HIGH BYTE
-;    movwf   moisture_l_H
-;    movlw   0x29    ; set lower limit for moisture level 41% - LOW BYTE
-;    movwf   moisture_l_L
-;    return
-;;-----------------------------------------
-;; Comparisons
-;;-----------------------------------------	
-;Temp_Compare:
-;    movf    Final_Temp_H, W ; if high byte = lower limit, continue
-;    sublw   temp_l_H	; subtract temp from lower limit
-;    btfss   STATUS, 2	; if set then the two bytes are equal, if not set then continue
-;    btfsc   STATUS, 0	; if set then final temp < lower limit, if clear then
-;    call    Limit
-;   
-;    movf    Final_Temp_L, W
-;    sublw   temp_l_L
-;    btfss   STATUS, 2
-;    btfsc   STATUS, 0
-;    call    Limit
-;   
-;    movf    temp_u_H, W
-;    btfss   STATUS, 2
-;    btfsc   STATUS, 0
-;    call    Limit
-;   
-;    movf    temp_u_L, W
-;    btfss   STATUS, 2
-;    btfsc   STATUS, 0
-;    call    Limit
-;   
-;    call    End_Compare
-;    return
-;   
-;Limit:
-;    call    Activate_LEDs
-;    call    End_Compare
-;    return
-;
-;End_Compare:
-;    return
-;   
-;Activate_LEDs:
-;    movlw   0x0F
-;    xorwf   PORTE, F
-;    call    Delay
-;    return
+;-----------------------------------------
+; Converting Byte Values to Hex
+;-----------------------------------------
+Byte_to_Hex:
+    swapf   WREG, W
+    andlw   0x0F
+    call    Nibble_to_ASCII
+    movwf   Temp_ASCII_H
+    
+    movf    WREG, W
+    andlw   0x0F
+    call    Nibble_to_ASCII
+    movwf   Temp_ASCII_L
+     
+Nibble_to_ASCII:
+    addlw   0
+    movwf   Temp_ASCII
+    
+    movlw   9
+    subwf   Temp_ASCII, W
+    btfss   STATUS, 0
+    goto    Letter
+    
+    return 
+    
+Letter:
+    addlw   7
+    movwf   Temp_ASCII
+    
+    return 
+	
+;-----------------------------------------
+; Select Measurements to Display
+;-----------------------------------------
+Select_Lines:
+    movf    current_line, W, A
+    sublw   0
+    btfsc   STATUS, 2
+    call    Display_Temperature
+   
+    movf    current_line, W, A
+    sublw   1
+    btfsc   STATUS, 2
+    call    Display_Light
+   
+    movf    current_line, W, A
+    sublw   2
+    btfsc   STATUS, 2
+    call    Display_Moisture
+   
+Display_Temperature:
+    call    LCD_Clear
+    call    Move_Line1
+    lfsr    2, FirstLine        ; "Temperature: "
+    movlw   FirstLine_l
+    call    LCD_Write_Message
+
+    call    Move_Line2
+    movf    Final_Temp_H, W
+    ;call    Convert_To_ASCII    ; Convert high byte to ASCII
+    call    LCD_Send_Byte_D
+
+    movf    Final_Temp_L, W
+    ;call    Convert_To_ASCII    ; Convert low byte to ASCII
+    call    LCD_Send_Byte_D
+    return
+
+Display_Moisture:
+    call    LCD_Clear
+   
+    call    Move_Line1
+    lfsr    2, ThirdLine
+    movlw   ThirdLine_l
+    call    LCD_Write_Message
+   
+    call    Move_Line2
+    movf    Final_Moisture_H, W
+    ;call    Convert_to_ASCII
+    call    LCD_Send_Byte_D
+   
+    movf    Final_Moisture_L, W
+    ;call    Convert_to_ASCII
+    call    LCD_Send_Byte_D
+   
+    return
+    
+Display_Light:
+    call    LCD_Clear
+   
+    call    Move_Line1
+    lfsr    2, SecondLine
+    movlw   SecondLine_l
+    call    LCD_Write_Message
+   
+    call    Move_Line2
+    movf    Final_Light_H, W
+    ;call    Convert_to_ASCII
+    call    LCD_Send_Byte_D
+   
+    movf    Final_Light_L, W
+    ;call    Convert_to_ASCII
+    call    LCD_Send_Byte_D
+   
+    return
+	
+;-----------------------------------------
+; Ideal Ranges for Sensors - LED Flashes
+;-----------------------------------------
+Set_Ranges:
+    movlw   0x00    ; set lower limit for temp 21 degrees C - HIGH BYTE
+    movwf   temp_l_H
+    movlw   0x15    ; set lower limit for temp 21 degrees C - LOW BYTE
+    movwf   temp_l_L
+   
+    movlw   0x00    ; set upper limit for temp 29 degrees C - HIGH BYTE
+    movwf   temp_u_H
+    movlw   0x1D    ; set upper limit for temp 29 degrees C - LOW BYTE
+    movwf   temp_u_L
+   
+    movlw   0x1B    ; set upper limit for lux 7000lux - HIGH BYTE
+    movwf   light_u_H
+    movlw   0x58    ; set upper limit for lux 7000lux - LOW BYTE
+    movwf   light_u_L
+   
+    movlw   0x13    ; set lower limit for lux 5000lux - HIGH BYTE
+    movwf   light_l_H
+    movlw   0x88    ; set lower limit for lux 5000lux - LOW BYTE
+    movwf   light_l_L
+   
+    movlw   0x00    ; set upper limit for moisture level 80% - HIGH BYTE
+    movwf   moisture_u_L
+    movlw   0x50    ; set upper limit for moisture level 80% - LOW BYTE
+    movwf   moisture_u_H
+   
+    movlw   0x00    ; set lower limit for moisture level 41% - HIGH BYTE
+    movwf   moisture_l_H
+    movlw   0x29    ; set lower limit for moisture level 41% - LOW BYTE
+    movwf   moisture_l_L
+    return
+;-----------------------------------------
+; Comparisons
+;-----------------------------------------	
+Temp_Compare:
+    movf    Final_Temp_H, W ; if high byte = lower limit, continue
+    sublw   temp_l_H	; subtract temp from lower limit
+    btfss   STATUS, 2	; if set then the two bytes are equal, if not set then continue
+    btfsc   STATUS, 0	; if set then final temp < lower limit, if clear then
+    call    Limit
+   
+    movf    Final_Temp_L, W
+    sublw   temp_l_L
+    btfss   STATUS, 2
+    btfsc   STATUS, 0
+    call    Limit
+   
+    movf    temp_u_H, W
+    btfss   STATUS, 2
+    btfsc   STATUS, 0
+    call    Limit
+   
+    movf    temp_u_L, W
+    btfss   STATUS, 2
+    btfsc   STATUS, 0
+    call    Limit
+   
+    call    End_Compare
+    return
+   
+Moisture_Compare:
+    movf    Final_Moisture_H, W
+    sublw   moisture_l_H
+    btfss   STATUS, 2
+    btfsc   STATUS, 0
+    call    Limit
+   
+    movf    Final_Moisture_L, W
+    sublw   moisture_l_L
+    btfss   STATUS, 2
+    btfsc   STATUS, 0
+    call    Limit
+   
+    movf    moisture_u_H, W
+    btfss   STATUS, 2
+    btfsc   STATUS, 0
+    call    Limit
+   
+    movf    moisture_l_L, W
+    btfss   STATUS, 2
+    btfsc   STATUS, 0
+    call    Limit
+   
+    call    End_Compare
+    return
+
+Photodiode_Compare:
+    movf    Final_Light_H, W
+    sublw   light_l_H
+    btfss   STATUS, 2
+    btfsc   STATUS, 0
+    call    Limit
+     btfsc   STATUS, 0
+    call    Limit
+   
+    call    End_Compare
+    return
+   
+    movf    Final_Light_L, W
+    sublw   light_l_L
+    btfss   STATUS, 2
+    btfsc   STATUS, 0
+    call    Limit
+   
+    movf    light_u_H, W
+    btfss   STATUS, 2
+    btfsc   STATUS, 0
+    call    Limit
+   
+    movf    light_u_L, W
+    btfss   STATUS, 2
+    btfsc   STATUS, 0
+    call    Limit
+   
+    call    End_Compare
+    return
+  
+Limit:
+    call    Activate_LEDs
+    call    End_Compare
+    return
+
+End_Compare:
+    return
+   
+Activate_LEDs:
+    movlw   0x0F
+    xorwf   PORTE, F
+    call    Delay
+    
+    return
+    
 ;-----------------------------------------
 ; Delays
 ;-----------------------------------------
 delay:	decfsz	delay_count, A	    ; decrement until zero
-	bra	delay
+	bra	Delay
 	return
 Delay:
     movlw   0xFF
-    movwf   Delay
+    movwf   delay1
     return
 Delay_Loop:
-    decfsz  Delay, F
+    decfsz  delay1, F
     goto    Delay_Loop
     return
     
