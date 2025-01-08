@@ -2,7 +2,7 @@
 ;-----------------------------------------
 ; External and Global variables
 ;-----------------------------------------
-extrn	Check_Buttons, Move_Up, Move_Down, Select_Line  ; external subroutines
+extrn	Arrow_to_Temperature, Arrow_to_Light, Arrow_to_Moisture ; external subroutines
 extrn	LCD_Setup, LCD_Write_Message, LCD_Send_Byte_I, LCD_Clear, LCD_Send_Byte_D
 extrn	Read_Line1, Read_Line2,	Read_Line3, Read_Arrow, Move_Line1, Move_Line2, Write_Line1, Write_Line2, Write_Line3, Write_Arrow
 extrn	Final_Moisture_H, Final_Moisture_L, Final_Temp_H, Final_Temp_L, Final_Light_H, Final_Light_L    
@@ -18,8 +18,9 @@ global	Display_Menu
 psect	udata_acs		    ; reserve data space in access ram
 counter:	ds 1		    ; reserve one byte for a counter variable
 delay_count:	ds  1		    ; reserve one byte for counter in the delay routine
-current_line:	ds  1		    ; current line of menu (0x80 = line 1, 0xC0 = line 2, diff = 0x40) 
-    
+current_line:	ds  1		    ; current line of menu
+
+psect	udata
 ;-----------------------------------------
 ; Sensor Constants
 ;-----------------------------------------
@@ -111,6 +112,7 @@ setup:
 	
 	call	ADC_Setup
 	call	Read_Sensors
+	call	Set_Ranges
 	
 	call	LCD_Setup	; setup LCD
 	goto	main_loop
@@ -130,14 +132,17 @@ ISR:
 
 	movf	PORTD, W, A        ; Read PORTC
 
-	btfsc	PORTD, 0, A	    ; RC0
-	call	Move_Up            ; Call Move_Up if RC0 is pressed
+	btfsc	PORTD, 0, A	    ; RD0
+	call	Arrow_to_Temperature	; Move arrow to temperature line
 
-	btfsc	PORTD, 1, A	    ; RC1
-	call	Move_Down          ; Call Move_Down if RC1 is pressed
+	btfsc	PORTD, 1, A	    ; RD1
+	call	Arrow_to_Light	; Move arrow to light line
 
-	btfsc	PORTD, 2, A	    ; RC2
-	call	Select_Line        ; Call Select_Line if RC2 is pressed
+	btfsc	PORTD, 2, A	    ; RD2
+	call	Arrow_to_Moisture   ; Move arrow to moisture line
+	
+	btfsc	PORTD, 3, A	    ; RD3
+	call	Select_Lines	;Move arrow to moisture line
 
 	bcf	INTCON, 2, A	    ; bit 2 = TMR0IF - Clear Timer0 interrupt flag
 	retfie			    ; Return from interrupt
@@ -321,11 +326,6 @@ Select_Lines:
 Display_Temperature:
     call    LCD_Clear
     call    Move_Line1
-    lfsr    2, FirstLine        ; "Temperature: "
-    movlw   FirstLine_l
-    call    LCD_Write_Message
-
-    call    Move_Line2
     movf    Final_Temp_H, W
     ;call    Convert_To_ASCII    ; Convert high byte to ASCII
     call    LCD_Send_Byte_D
@@ -337,13 +337,7 @@ Display_Temperature:
 
 Display_Moisture:
     call    LCD_Clear
-   
     call    Move_Line1
-    lfsr    2, ThirdLine
-    movlw   ThirdLine_l
-    call    LCD_Write_Message
-   
-    call    Move_Line2
     movf    Final_Moisture_H, W
     ;call    Convert_to_ASCII
     call    LCD_Send_Byte_D
@@ -355,14 +349,8 @@ Display_Moisture:
     return
     
 Display_Light:
-    call    LCD_Clear
-   
+    call    LCD_Clear  
     call    Move_Line1
-    lfsr    2, SecondLine
-    movlw   SecondLine_l
-    call    LCD_Write_Message
-   
-    call    Move_Line2
     movf    Final_Light_H, W
     ;call    Convert_to_ASCII
     call    LCD_Send_Byte_D
