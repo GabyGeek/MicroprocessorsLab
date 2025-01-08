@@ -90,7 +90,7 @@ shift_loop:
     return
 	
     
-psect	udata_acs
+psect	udata
 mul_10_H:   ds 1
 mul_10_L:   ds 1
 remainder_H:	ds 1
@@ -194,13 +194,18 @@ Convert_Moisture:
     movf    Moisture_L, W          
     movwf   Temp_Reg_L            
 
-    movlw   100	; move 100 into W reg
+    movlw   5		;move 100 into W reg
     mulwf   Temp_Reg_H	; multiply ADC value by 100
-    movlw   100
+    movlw   5
     mulwf   Temp_Reg_L
 
-    movlw   12	; divide by 2^12
+    movlw   7	; divide by 2^12
     call    Right_Shift
+
+    movlw   34
+    addwf   Temp_Reg_H
+    movlw   34
+    addwf   Temp_Reg_L
 
     movf    Temp_Reg_L, W
     movwf   Final_Moisture_L
@@ -215,13 +220,10 @@ Convert_Photodiode:
     movf    Photodiode_L, W          
     movwf   Temp_Reg_L            
 
-    movlw   100	; move 100 into W reg
+    movlw   3	; move 100 into W reg
     mulwf   Temp_Reg_H	; multiply ADC value by 100
-    movlw   100
+    movlw   3
     mulwf   Temp_Reg_L
-
-    movlw   12
-    call    Right_Shift	; divides moisture level by 4096 (2^12)
 
     movf    Temp_Reg_L, W
     movwf   Final_Light_L
