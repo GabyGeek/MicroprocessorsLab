@@ -400,26 +400,26 @@ Set_Ranges:
 ;-----------------------------------------	
 Temp_Compare:
     movf    Final_Temp_H, W ; if high byte = lower limit, continue
-    sublw   temp_l_H	; subtract temp from lower limit
-    btfss   STATUS, 2	; if set then the two bytes are equal, if not set then continue
-    btfsc   STATUS, 0	; if set then final temp < lower limit, if clear then
-    call    Limit
+    sublw   temp_l_H    ; subtract temp from lower limit
+    btfss   STATUS, 2   ; if set then the two bytes are equal, if not set then continue
+    btfsc   STATUS, 0   ; if set then final temp < lower limit, if clear then
+    call    Activate_LED1
    
     movf    Final_Temp_L, W
     sublw   temp_l_L
     btfss   STATUS, 2
     btfsc   STATUS, 0
-    call    Limit
+    call    Activate_LED1
    
-    movf    temp_u_H, W
-    btfss   STATUS, 2
-    btfsc   STATUS, 0
-    call    Limit
-   
-    movf    temp_u_L, W
-    btfss   STATUS, 2
-    btfsc   STATUS, 0
-    call    Limit
+;    movf    temp_u_H, W
+;    btfss   STATUS, 2
+;    btfsc   STATUS, 0
+;    call    Limit
+;  
+;    movf    temp_u_L, W
+;    btfss   STATUS, 2
+;    btfsc   STATUS, 0
+;    call    Limit
    
     call    End_Compare
     return
@@ -429,23 +429,23 @@ Moisture_Compare:
     sublw   moisture_l_H
     btfss   STATUS, 2
     btfsc   STATUS, 0
-    call    Limit
+    call    Activate_LED2
    
     movf    Final_Moisture_L, W
     sublw   moisture_l_L
     btfss   STATUS, 2
     btfsc   STATUS, 0
-    call    Limit
+    call    Activate_LED2
    
-    movf    moisture_u_H, W
-    btfss   STATUS, 2
-    btfsc   STATUS, 0
-    call    Limit
-   
-    movf    moisture_l_L, W
-    btfss   STATUS, 2
-    btfsc   STATUS, 0
-    call    Limit
+;    movf    moisture_u_H, W
+;    btfss   STATUS, 2
+;    btfsc   STATUS, 0
+;    call    Limit
+;  
+;    movf    moisture_u_L, W
+;    btfss   STATUS, 2
+;    btfsc   STATUS, 0
+;    call    Limit
    
     call    End_Compare
     return
@@ -455,53 +455,63 @@ Photodiode_Compare:
     sublw   light_l_H
     btfss   STATUS, 2
     btfsc   STATUS, 0
-    call    Limit
-     btfsc   STATUS, 0
-    call    Limit
-   
-    call    End_Compare
-    return
-   
+    call    Activate_LED3
+     
     movf    Final_Light_L, W
     sublw   light_l_L
     btfss   STATUS, 2
     btfsc   STATUS, 0
-    call    Limit
+    call    Activate_LED3
    
-    movf    light_u_H, W
-    btfss   STATUS, 2
-    btfsc   STATUS, 0
-    call    Limit
-   
-    movf    light_u_L, W
-    btfss   STATUS, 2
-    btfsc   STATUS, 0
-    call    Limit
+;    movf    light_u_H, W
+;    btfss   STATUS, 2
+;    btfsc   STATUS, 0
+;    call    Limit
+;  
+;    movf    light_u_L, W
+;    btfss   STATUS, 2
+;    btfsc   STATUS, 0
+;    call    Limit
    
     call    End_Compare
     return
-  
-Limit:
-    call    Activate_LEDs
-    call    End_Compare
-    return
-
+ 
 End_Compare:
     return
    
-Activate_LEDs:
-    movlw   0x0F
-    xorwf   PORTE, F
+;-----------------------------------------
+; LED Flash Routines
+;-----------------------------------------
+Activate_LED1:
+    ; Toggle LED on RE0
+    bsf     PORTE, 0     ; turn LED on
     call    Delay
-    
+    bcf     PORTE, 0     ; turn LED off
+    call    Delay
     return
-    
+
+Activate_LED2:
+    ; Toggle LED on RE1
+    bsf     PORTE, 1
+    call    Delay
+    bcf     PORTE, 1
+    call    Delay
+    return
+
+Activate_LED3:
+    ; Toggle LED on RE2
+    bsf     PORTE, 2
+    call    Delay
+    bcf     PORTE, 2
+    call    Delay
+    return
+ 
 ;-----------------------------------------
 ; Delays
 ;-----------------------------------------
-delay:	decfsz	delay_count, A	    ; decrement until zero
-	bra	Delay
-	return
+delay:      decfsz      delay_count, A        ; decrement until zero
+      bra   Delay
+      return
 Delay:
     movlw   0xFF
     movwf   delay1
@@ -510,5 +520,5 @@ Delay_Loop:
     decfsz  delay1, F
     goto    Delay_Loop
     return
-    
-	end	rst
+   
+      end   rst
